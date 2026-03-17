@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Greenhouse Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div id="login-screen">
+    <h2>Greenhouse Login</h2>
+    <input type="email" id="email" placeholder="Enter Email">
+    <input type="password" id="password" placeholder="Enter Password">
+    <button id="login-btn" class="primary-btn">Log In</button>
+    <p id="error-msg" style="color:red;"></p>
+  </div>
+
+  <div id="app-content" class="hidden">
+
+  <div id="systemToast" class="toast-notification hidden">
+    <span class="toast-icon">🔔</span>
+    <span id="toastMessage" class="toast-message">System Alert</span>
+  </div>
+
+  <nav class="topnav">
+    <div class="nav-brand">🌱 AutoGrow</div>
+    <div class="nav-links">
+      <a href="#" class="nav-item active" data-target="dashboardPage">Dashboard</a>
+      <a href="#" class="nav-item" data-target="controlsPage">Controls</a>
+      <a href="#" class="nav-item" data-target="setupPage">Setup</a>
+      <a href="#" class="nav-item" data-target="trackingPage">Tracking</a>
+    </div>
+    <div class="nav-status">
+    <span id="status-dot">🔴</span> <span id="status-text" style="color: gray;">Checking connection...</span>
+    <button id="logout-btn" class="danger-btn" style="margin-left: 15px; padding: 5px 10px;">Log Out</button>
+  </div>
+  </nav>
+
+  
+  <main class="container">
+    
+    <section id="dashboardPage" class="page-section">
+      <header class="page-header">
+        <h1 id="activeCropTitle">No Active Crop</h1>
+        <p id="activeCropSub">Go to Setup to start a new grow cycle.</p>
+        <button id="cropButton" class="outline-btn">Quick Setup</button>
+        
+      </header>
+
+      <div class="progress-container">
+        <div class="progress-labels">
+          <span id="progressCrop">-</span>
+          <span id="progressDay">-</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="growProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <div class="sensor-card">
+          <h3>🌡️ Climate</h3>
+          <div class="sensor-row">
+            <span>Temperature <span id="targetTemp" class="target-label"></span></span>
+            <span id="tempDisplay" class="sensor-value">0.0 °C</span>
+          </div>
+          <div class="sensor-row">
+            <span>Humidity <span id="targetHumidity" class="target-label"></span></span>
+            <span id="humidityDisplay" class="sensor-value">0.0 %</span>
+          </div>
+        </div>
+
+        <div class="sensor-card">
+          <h3>💧 Soil Moisture</h3>
+          <div class="sensor-row">
+            <span>Zone Targets: <span id="targetSoil" class="target-label"></span></span>
+          </div>
+          <div class="sensor-row">
+            <span>Zone 1</span>
+            <span id="soilDisplay1" class="sensor-value">0 %</span>
+          </div>
+          <div class="sensor-row">
+            <span>Zone 2</span>
+            <span id="soilDisplay2" class="sensor-value">0 %</span>
+          </div>
+          <div class="sensor-row">
+            <span>Zone 3</span>
+            <span id="soilDisplay3" class="sensor-value">0 %</span>
+          </div>
+        </div>
+
+        <div class="sensor-card">
+          <h3>☀️ Light & Soil Health</h3>
+          <div class="sensor-row">
+            <span>Sunlight <span id="targetLight" class="target-label"></span></span>
+            <span id="lightDisplay" class="sensor-value">0 %</span>
+          </div>
+          <div class="sensor-row">
+            <span>Nitrogen (N)</span>
+            <span id="nitrogenDisplay" class="sensor-value">N/A</span>
+          </div>
+          <div class="sensor-row">
+            <span>Phosphorus (P)</span>
+            <span id="phosphorusDisplay" class="sensor-value">N/A</span>
+          </div>
+          <div class="sensor-row">
+            <span>Potassium (K)</span>
+            <span id="potassiumDisplay" class="sensor-value">N/A</span>
+          </div>
+        </div>
+
+        <div class="tracking-panel" style="margin-top: 20px;">
+        <div class="sensor-card" style="width: 100%;">
+          <h3>📊 Today's System Usage</h3>
+          <div class="sensor-row">
+            <span>Water Pump Cycles</span>
+            <span id="pumpCountDisplay" class="sensor-value">0 times</span>
+          </div>
+          <div class="sensor-row">
+            <span>Grow Light Runtime</span>
+            <span id="lightHoursDisplay" class="sensor-value">0 hrs 0 mins</span>
+          </div>
+          <div class="sensor-row">
+            <span>Sun Light Runtime</span>
+            <span id="sunlightHoursDisplay" class="sensor-value">0 hrs 0 mins</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sensor-card" style="margin-top: 20px; width: 100%;">
+        <h3>💧 Watering Schedule</h3>
+        <div class="sensor-row">
+          <span><strong>Next Auto-Watering:</strong></span>
+          <span id="next-watering-display" class="sensor-value">Loading schedule...</span>
+        </div>
+      </div>
+      </div>
+    </section>
+
+    <section id="controlsPage" class="page-section hidden">
+      <header class="page-header">
+        <h1>Manual Controls</h1>
+        <button id="modeSwitch" data-mode="manual" class="mode-btn">MANUAL</button>
+      </header>
+      
+      <div class="card-grid">
+        <div class="control-card">
+          <button id="pumpBtn" class="big-action-btn off">Water Pump: OFF</button>
+        </div>
+        <div class="control-card">
+          <button id="fanBtn" class="big-action-btn off">Vent Fan: OFF</button>
+        </div>
+        <div class="control-card">
+          <button id="lightBtn" class="big-action-btn off">Grow Lights: OFF</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="setupPage" class="page-section hidden">
+      <header class="page-header">
+        <h1>Grow Setup</h1>
+        <p>Select a crop and review automated settings.</p>
+      </header>
+
+      <div class="setup-layout">
+        <div class="setup-card">
+          <h3>1. Choose Crop</h3>
+          <select id="cropSelect" class="styled-input">
+            <option value="none">Select Crop</option>
+            <option value="tomato">Tomato</option>
+            <option value="lettuce">Lettuce</option>
+            <option value="spinach">Kangkong</option>
+          </select>
+          <button id="applyCropBtn" class="primary-btn">Load Defaults</button>
+          <p id="cropLoadedHint" class="hint-text"></p>
+        </div>
+
+        <div class="setup-card">
+          <h3>2. Environment Thresholds</h3>
+          
+          <div class="input-group">
+            <label>Target Temp (°C)</label>
+            <input id="draftTargetTemp" type="number" step="0.1" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Fan Hysteresis</label>
+            <input id="draftFanHys" type="number" step="0.1" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Humidity Hysteresis</label>
+            <input id="draftHumidityHys" type="number" step="0.1" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Humidity Threshold (%)</label>
+            <input id="draftHumidityTh" type="number" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Light Threshold (%)</label>
+            <input id="draftLightTh" type="number" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Required Light Hours</label>
+            <input id="draftLightHours" type="number" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Soil Moisture Threshold (%)</label>
+            <input id="draftWaterTh" type="number" class="styled-input" />
+          </div>
+          
+          <div class="input-group">
+            <label>Pump Duration (sec)</label>
+            <input id="draftPumpSec" type="number" class="styled-input" />
+          </div>
+          
+          <div class="input-group" style="margin-top: 15px; border-top: 1px solid var(--border-light); padding-top: 15px;">
+            <label>Watering Schedule</label>
+            <div id="wateringTimesList" style="margin-bottom: 10px;"></div>
+            <button id="addWaterTimeBtn" type="button" class="outline-btn">+ Add time</button>
+            <p id="wateringTimesHint" class="hint-text"></p>
+          </div>
+
+          <button id="saveDraftBtn" class="primary-btn" style="margin-top: 20px;">Save Custom Settings</button>
+          <p id="draftSavedHint" class="hint-text"></p>
+        </div>
+
+        <div class="setup-card">
+          <h3>3. Pre-Grow Checklist</h3>
+          <div class="checklist">
+            <label><input id="cbSeeds" type="checkbox" /> Seeds placed</label>
+            <label><input id="cbSoil" type="checkbox" /> Soil prepared</label>
+            <label><input id="cbTank" type="checkbox" /> Water tank filled</label>
+          </div>
+          <div class="input-group" style="margin-top: 15px;">
+            <label>Grow Duration (Days)</label>
+            <input id="durationDays" type="number" value="30" class="styled-input" />
+          </div>
+          <div class="action-row">
+            <button id="startGrowBtn" class="success-btn" disabled>Start Growing</button>
+            <button id="stopGrowBtn" class="danger-btn">Stop Growing</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="trackingPage" class="page-section hidden">
+      <header class="page-header">
+        <h1>Data & History</h1>
+      </header>
+      <div class="card-grid">
+        <div class="setup-card" style="grid-column: 1 / -1;">
+          <h3>Daily Tracking</h3>
+          <div id="trackingList" class="table-container">Loading data...</div>
+        </div>
+        <div class="setup-card" style="grid-column: 1 / -1;">
+          <h3>Past Grow Cycles</h3>
+          <div id="historyList" class="table-container">Loading data...</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+/* Color Palette & Base Variables */
+:root {
+  --primary-green: #2ecc71;
+  --dark-green: #27ae60;
+  --bg-color: #f4f7f6;
+  --card-bg: #ffffff;
+  --text-main: #2c3e50;
+  --text-muted: #7f8c8d;
+  --border-light: #e0e6ed;
+  --danger: #e74c3c;
+  
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+/* Add this simple style to hide things */
+    .hidden { display: none !important; }
+    
+    /* Basic style for the login box to make it look nice */
+    #login-screen {
+      max-width: 300px;
+      margin: 100px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    #login-screen input { width: 90%; margin-bottom: 10px; padding: 8px; }
+
+/* Utilities */
+.hidden {
+  display: none !important;
+}
+
+.hint-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 5px;
+}
+
+/* Navigation */
+.topnav {
+  background-color: var(--card-bg);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--dark-green);
+}
+
+.nav-links a {
+  text-decoration: none;
+  color: var(--text-muted);
+  margin-left: 20px;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-links a:hover, .nav-links a.active {
+  color: var(--primary-green);
+}
+
+/* ========================================= */
+/* TOAST NOTIFICATION STYLES           */
+/* ========================================= */
+.toast-notification {
+  position: fixed;
+  top: 20px;            /* Where it sits when visible */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: white;
+  color: #333;
+  padding: 15px 25px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;        /* Keeps it above everything else */
+  border-left: 6px solid #3498db; /* Blue border by default */
+  
+  /* Smooth slide animation */
+  transition: top 0.4s ease, opacity 0.4s ease;
+}
+
+/* The hidden state pushes it off the top of the screen */
+.toast-notification.hidden {
+  top: -100px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toast-icon {
+  font-size: 1.5rem;
+}
+
+.toast-message {
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+/* Main Container */
+.container {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+
+.page-header {
+  margin-bottom: 30px;
+}
+
+.page-header h1 {
+  font-size: 2rem;
+  margin-bottom: 5px;
+}
+
+/* Dashboard Progress Bar */
+.progress-container {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  margin-bottom: 30px;
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 12px;
+  background-color: var(--border-light);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--primary-green);
+  transition: width 0.5s ease;
+}
+
+/* Grids & Cards */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.sensor-card, .setup-card, .control-card {
+  background: var(--card-bg);
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+  border: 1px solid var(--border-light);
+}
+
+.sensor-card h3, .setup-card h3 {
+  margin-bottom: 15px;
+  color: var(--dark-green);
+  border-bottom: 2px solid var(--bg-color);
+  padding-bottom: 10px;
+}
+
+.sensor-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--bg-color);
+}
+
+.sensor-row:last-child {
+  border-bottom: none;
+}
+
+.sensor-value {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+/* Buttons & Inputs */
+.styled-input {
+  width: 100%;
+  padding: 10px 15px;
+  margin: 8px 0 15px;
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary-btn, .success-btn {
+  background-color: var(--primary-green);
+  color: white;
+  padding: 10px 20px;
+  width: 100%;
+  font-size: 1rem;
+}
+
+.primary-btn:hover:not(:disabled) { background-color: var(--dark-green); }
+
+.danger-btn {
+  background-color: var(--danger);
+  color: white;
+  padding: 10px 20px;
+  width: 100%;
+}
+
+.outline-btn {
+  background: transparent;
+  color: var(--dark-green);
+  border: 2px solid var(--dark-green);
+  padding: 8px 16px;
+  margin-top: 10px;
+}
+
+.big-action-btn {
+  width: 100%;
+  padding: 20px;
+  font-size: 1.2rem;
+  border-radius: 8px;
+}
+
+.big-action-btn.on {
+  background-color: var(--primary-green);
+  color: white;
+  box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
+
+.big-action-btn.off {
+  background-color: var(--border-light);
+  color: var(--text-muted);
+}
+
+.mode-btn {
+  padding: 8px 16px;
+  background: var(--text-main);
+  color: white;
+}
+
+/* Checklists & Tables */
+.checklist label {
+  display: block;
+  margin: 10px 0;
+  font-size: 1.1rem;
+}
+
+.checklist input[type="checkbox"] {
+  margin-right: 10px;
+  transform: scale(1.2);
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-top: 15px;
+}
