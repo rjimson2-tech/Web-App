@@ -781,7 +781,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // 3. Calculate Progress
-     /* const startMs = growData.start_ts || Date.now();
+      const startMs = growData.start_ts || Date.now();
       const durationDays = growData.duration_days || 30;
       const elapsedMs = Math.max(0, Date.now() - startMs);
       const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
@@ -789,9 +789,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const percent = Math.min(Math.round((elapsedDays / durationDays) * 100), 100);
       
       if (progressDay) progressDay.textContent = `Day ${elapsedDays} of ${durationDays}`;
-      if (growProgressBar) growProgressBar.style.width = percent + "%";*/
+      if (growProgressBar) growProgressBar.style.width = percent + "%";
 
-      // 3. Calculate Progress
+      /*// 3. Calculate Progress
       const startMs = growData.start_ts || Date.now();
       const durationDays = growData.duration_days || 30;
       const elapsedMs = Math.max(0, Date.now() - startMs);
@@ -818,7 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (progressCrop) progressCrop.textContent = "-";
       if (progressDay) progressDay.textContent = "Day 0 of 0";
-      if (growProgressBar) growProgressBar.style.width = "0%";
+      if (growProgressBar) growProgressBar.style.width = "0%";*/
     }
   });
 
@@ -1016,4 +1016,52 @@ document.addEventListener('DOMContentLoaded', () => {
     isFirstLoad = false;
   });
 
+  // DAILY TRACKING HISTORY
+  const trackingList = document.getElementById('trackingList');
+// Point specifically to your existing tracking/daily path
+const dailyRef = firebase.database().ref('tracking/daily');
+
+dailyRef.on('value', (snapshot) => {
+  const data = snapshot.val();
+  
+  if (!data) {
+    trackingList.innerHTML = '<p>No daily tracking data found.</p>';
+    return;
+  }
+
+  // Start building the table
+  let tableHTML = `
+    <table class="data-table" style="width: 100%; border-collapse: collapse;">
+      <thead>
+        <tr style="background-color: #f4f4f4; border-bottom: 2px solid #ddd; text-align: left;">
+          <th style="padding: 10px;">Date</th>
+          <th style="padding: 10px;">Sunlight (Mins)</th>
+          <th style="padding: 10px;">Artificial Light (Mins)</th>
+          <th style="padding: 10px;">Watering Events</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  // Get the dates (keys), sort them so the newest is at the top
+  const dates = Object.keys(data).sort().reverse();
+
+  dates.forEach(date => {
+    // Skip the placeholder "2000-00-00" if you want a clean list
+    if (date === "2000-00-00") return;
+
+    const entry = data[date];
+    tableHTML += `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 10px; font-weight: bold;">${date}</td>
+        <td style="padding: 10px;">${entry.sunlight_minutes || 0} min</td>
+        <td style="padding: 10px;">${entry.light_minutes || 0} min</td>
+        <td style="padding: 10px; color: #007bff; font-weight: bold;">${entry.water_count || 0} times</td>
+      </tr>
+    `;
+  });
+
+  tableHTML += '</tbody></table>';
+  trackingList.innerHTML = tableHTML;
+});
 }});
