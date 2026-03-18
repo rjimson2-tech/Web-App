@@ -790,35 +790,6 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (progressDay) progressDay.textContent = `Day ${elapsedDays} of ${durationDays}`;
       if (growProgressBar) growProgressBar.style.width = percent + "%";
-
-      /*// 3. Calculate Progress
-      const startMs = growData.start_ts || Date.now();
-      const durationDays = growData.duration_days || 30;
-      const elapsedMs = Math.max(0, Date.now() - startMs);
-      
-      // Calculate full 24-hour cycles passed, then add 1 so the first day is "Day 1"
-      const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24)) + 1;
-      
-      // Prevent the bar from going over 100% when the study finishes
-      const percent = Math.min(Math.round((elapsedDays / durationDays) * 100), 100);
-      
-      if (progressDay) progressDay.textContent = `Day ${elapsedDays} of ${durationDays}`;
-      if (growProgressBar) growProgressBar.style.width = percent + "%";
-
-      // 4. Update UI
-    } else {
-      // DEFAULT STATE (No active crop)
-      if (activeCropTitle) activeCropTitle.textContent = "No Active Crop";
-      if (activeCropSub) activeCropSub.textContent = "Go to Setup to start a new grow cycle.";
-      if (cropButton) {
-        cropButton.textContent = "Quick Setup";
-        cropButton.style.backgroundColor = "var(--dark-green)"; // Or your original button color
-        cropButton.style.color = "white";
-        cropButton.style.borderColor = "var(--primary-green)";
-      }
-      if (progressCrop) progressCrop.textContent = "-";
-      if (progressDay) progressDay.textContent = "Day 0 of 0";
-      if (growProgressBar) growProgressBar.style.width = "0%";*/
     }
   });
 
