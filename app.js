@@ -987,47 +987,59 @@ document.addEventListener('DOMContentLoaded', () => {
     isFirstLoad = false;
   });
 
-  // DAILY TRACKING HISTORY
-  const trackingList = document.getElementById('trackingList');
-// Point specifically to your existing tracking/daily path
+// DAILY TRACKING
+const trackingList = document.getElementById('trackingList');
 const dailyRef = firebase.database().ref('tracking/daily');
+
+// helper function
+function formatMinutes(mins) {
+  const hours = Math.floor(mins / 60);
+  const remaining = mins % 60;
+
+  if (hours === 0) return `${remaining} min`;
+  if (remaining === 0) return `${hours} hr`;
+
+  return `${hours} hr ${remaining} min`;
+}
 
 dailyRef.on('value', (snapshot) => {
   const data = snapshot.val();
-  
+
   if (!data) {
     trackingList.innerHTML = '<p>No daily tracking data found.</p>';
     return;
   }
 
-  // Start building the table
   let tableHTML = `
     <table class="data-table" style="width: 100%; border-collapse: collapse;">
       <thead>
         <tr style="background-color: #f4f4f4; border-bottom: 2px solid #ddd; text-align: left;">
           <th style="padding: 10px;">Date</th>
-          <th style="padding: 10px;">Sunlight (Mins)</th>
-          <th style="padding: 10px;">Artificial Light (Mins)</th>
+          <th style="padding: 10px;">Sunlight</th>
+          <th style="padding: 10px;">Artificial Light</th>
           <th style="padding: 10px;">Watering Events</th>
         </tr>
       </thead>
       <tbody>
   `;
 
-  // Get the dates (keys), sort them so the newest is at the top
   const dates = Object.keys(data).sort().reverse();
 
   dates.forEach(date => {
-    // Skip the placeholder "2000-00-00" if you want a clean list
     if (date === "2000-00-00") return;
 
-    const entry = data[date];
+    const entry = data[date] || {};
+
+    const sunlight = formatMinutes(entry.sunlight_minutes || 0);
+    const light = formatMinutes(entry.light_minutes || 0);
+    const water = entry.water_count || 0;
+
     tableHTML += `
       <tr style="border-bottom: 1px solid #eee;">
         <td style="padding: 10px; font-weight: bold;">${date}</td>
-        <td style="padding: 10px;">${entry.sunlight_minutes || 0} min</td>
-        <td style="padding: 10px;">${entry.light_minutes || 0} min</td>
-        <td style="padding: 10px; color: #007bff; font-weight: bold;">${entry.water_count || 0} times</td>
+        <td style="padding: 10px;">${sunlight}</td>
+        <td style="padding: 10px;">${light}</td>
+        <td style="padding: 10px; color: #007bff; font-weight: bold;">${water} times</td>
       </tr>
     `;
   });
