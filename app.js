@@ -361,7 +361,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       })
     };
-    
+
+    // ==========================================
+  //       LIVE ACTUATOR STATUS LISTENERS
+  // ==========================================
+  const statusFan = document.getElementById("statusFan");
+  const statusPump = document.getElementById("statusPump");
+  const statusLight = document.getElementById("statusLight");
+
+  // Create references to the TRUE hardware states
+  const fanStateRef = database.ref("sensors/fan_state");
+  const pumpStateRef = database.ref("sensors/pump_state");
+  const lightStateRef = database.ref("sensors/light_state");
+
+  // Helper function to update the little text below the buttons
+  function updateSubStatus(element, isOn) {
+    if (!element) return;
+    if (isOn) {
+      element.innerHTML = "Live: 🟢 ON";
+      element.style.color = "#2ecc71"; // Nice bright green
+      element.style.fontWeight = "bold";
+    } else {
+      element.innerHTML = "Live: 🔴 OFF";
+      element.style.color = "#888"; // Subtle gray
+      element.style.fontWeight = "normal";
+    }
+  }
+
+  // Listen to Firebase and update instantly
+  fanStateRef.on("value", snap => updateSubStatus(statusFan, snap.val()));
+  pumpStateRef.on("value", snap => updateSubStatus(statusPump, snap.val()));
+  lightStateRef.on("value", snap => updateSubStatus(statusLight, snap.val()));
     // SETUP PAGE - QUICK PRESET SELECTION
     const cropSelect = document.getElementById("cropSelect");
     const applyCropBtn = document.getElementById("applyCropBtn");
