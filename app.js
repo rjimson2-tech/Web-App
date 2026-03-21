@@ -250,7 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Light
     lightRef.on("value", snap => {
     const el = document.getElementById("lightDisplay");
-    if (el) el.innerText = Math.round(safeNumber(snap.val())) + " %";
+    if (el) {
+      // Get the value, round it, and format it with commas
+      const luxValue = Math.round(safeNumber(snap.val()));
+      el.innerText = luxValue.toLocaleString() + " Lux"; 
+    }
     });
   // Nitrogen
     nitrogenRef.on("value", snap => {
@@ -269,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });  
 
     // ===================================//
-    //          MANUAL CONTROLS           //
+    //           MANUAL CONTROLS          //
     // ===================================//
     const fanBtn = document.getElementById("fanBtn");
     const pumpBtn = document.getElementById("pumpBtn");
@@ -281,6 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let pumpState = false;
     let lightState = false;
 
+    // --- 1. FIREBASE LISTENER (Updates the UI when database changes) ---
     modeRef.on("value", snap => {
         currentMode = snap.val() == "auto" ? "auto" : "manual";
         if (modeSwitchBtn) {
@@ -289,14 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Disable buttons in auto mode
-        const diabled = currentMode !== "manual";
+        const isDisabled = currentMode !== "manual";
         [fanBtn, pumpBtn, lightBtn].forEach(btn => {
             if (!btn) return;
-            btn.disabled = diabled;
-            btn.style.opacity = diabled ? "0.5" : "1";
-            btn.style.cursor = diabled ? "not-allowed" : "pointer";
-        });
-    });
+            btn.disabled = isDisabled;
+            btn.style.opacity = isDisabled ? "0.5" : "1";
+            btn.style.cursor = isDisabled ? "not-allowed" : "pointer";
+        }); // <-- Loop safely closes here
+    }); // <-- Firebase listener safely closes here
     
     // Helper to change button text and color
     function updateBtnUI(btn, label, state) {
@@ -342,13 +347,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentMode === "manual") lightCmdRef.set(!lightState);
     });
 }
+
     if (modeSwitchBtn) {
-    modeSwitchBtn.addEventListener("click", () => {
+      modeSwitchBtn.addEventListener("click", () => {
         const newMode = currentMode === "auto" ? "manual" : "auto";
         modeRef.set(newMode);
-    });
-    }
 
+        if (newMode === "auto") {
+          if (fanCmdRef) fanCmdRef.set(false);
+          if (pumpCmdRef) pumpCmdRef.set(false);
+          if (lightCmdRef) lightCmdRef.set(false); 
+
+        }
+      })
+    };
+    
     // SETUP PAGE - QUICK PRESET SELECTION
     const cropSelect = document.getElementById("cropSelect");
     const applyCropBtn = document.getElementById("applyCropBtn");
@@ -987,64 +1000,64 @@ document.addEventListener('DOMContentLoaded', () => {
     isFirstLoad = false;
   });
 
-// DAILY TRACKING
-const trackingList = document.getElementById('trackingList');
-const dailyRef = firebase.database().ref('tracking/daily');
+  // ===================================//
+  //       DAILY TRACKING HISTORY       //
+  // ===================================//
+  const trackingList = document.getElementById('trackingList');
+  const dailyRef = firebase.database().ref('tracking/daily');
 
-// helper function
-function formatMinutes(mins) {
-  const hours = Math.floor(mins / 60);
-  const remaining = mins % 60;
+  dailyRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    
+    if (!data) {
+      trackingList.innerHTML = '<p>No daily tracking data found.</p>';
+      return;
+    }
 
-  if (hours === 0) return `${remaining} min`;
-  if (remaining === 0) return `${hours} hr`;
-
-  return `${hours} hr ${remaining} min`;
-}
-
-dailyRef.on('value', (snapshot) => {
-  const data = snapshot.val();
-
-  if (!data) {
-    trackingList.innerHTML = '<p>No daily tracking data found.</p>';
-    return;
-  }
-
-  let tableHTML = `
-    <table class="data-table" style="width: 100%; border-collapse: collapse;">
-      <thead>
-        <tr style="background-color: #f4f4f4; border-bottom: 2px solid #ddd; text-align: left;">
-          <th style="padding: 10px;">Date</th>
-          <th style="padding: 10px;">Sunlight</th>
-          <th style="padding: 10px;">Artificial Light</th>
-          <th style="padding: 10px;">Watering Events</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
-
-  const dates = Object.keys(data).sort().reverse();
-
-  dates.forEach(date => {
-    if (date === "2000-00-00") return;
-
-    const entry = data[date] || {};
-
-    const sunlight = formatMinutes(entry.sunlight_minutes || 0);
-    const light = formatMinutes(entry.light_minutes || 0);
-    const water = entry.water_count || 0;
-
-    tableHTML += `
-      <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 10px; font-weight: bold;">${date}</td>
-        <td style="padding: 10px;">${sunlight}</td>
-        <td style="padding: 10px;">${light}</td>
-        <td style="padding: 10px; color: #007bff; font-weight: bold;">${water} times</td>
-      </tr>
+    // 1. Updated Table Headers
+    let tableHTML = `
+      <table class="data-table" style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background-color: #f4f4f4; border-bottom: 2px solid #ddd; text-align: left;">
+            <th style="padding: 10px;">Date</th>
+            <th style="padding: 10px;">Sunlight</th>
+            <th style="padding: 10px;">Grow Light</th>
+            <th style="padding: 10px;">Waterings</th>
+          </tr>
+        </thead>
+        <tbody>
     `;
-  });
 
-  tableHTML += '</tbody></table>';
-  trackingList.innerHTML = tableHTML;
-});
+    const dates = Object.keys(data).sort().reverse();
+
+    dates.forEach(date => {
+      if (date === "2000-00-00") return;
+
+      const entry = data[date];
+
+      // Calculate Light Hours and Mins
+      const sunTotal = entry.sunlight_minutes || 0;
+      const sunH = Math.floor(sunTotal / 60);
+      const sunM = sunTotal % 60;
+
+      const artTotal = entry.light_minutes || 0;
+      const artH = Math.floor(artTotal / 60);
+      const artM = artTotal % 60;
+
+      const waterings = entry.water_count || 0;
+
+      // Build the row with some slight color coding for readability
+      tableHTML += `
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 10px; font-weight: bold;">${date}</td>
+          <td style="padding: 10px;">${sunH}h ${sunM}m</td>
+          <td style="padding: 10px;">${artH}h ${artM}m</td>
+          <td style="padding: 10px; color: #007bff;">${waterings} times</td>
+        </tr>
+      `;
+    });
+
+    tableHTML += '</tbody></table>';
+    trackingList.innerHTML = tableHTML;
+  });
 }});
