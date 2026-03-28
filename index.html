@@ -27,7 +27,6 @@
     <div class="nav-brand">🌱 AutoGrow</div>
     <div class="nav-links">
       <a href="#" class="nav-item active" data-target="dashboardPage">Dashboard</a>
-      <a href="#" class="nav-item" data-target="controlsPage">Controls</a>
       <a href="#" class="nav-item" data-target="setupPage">Setup</a>
       <a href="#" class="nav-item" data-target="trackingPage">Tracking</a>
     </div>
@@ -55,6 +54,38 @@
         </div>
         <div class="progress-bar-bg">
           <div id="growProgressBar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <div class="card-grid" style="margin-bottom: 15px;">
+        <div class="control-card" style="grid-column: 1 / -1; text-align: center; padding: 15px;">
+          <h3 style="margin-top: 0; margin-bottom: 12px; color: #2c3e50; font-size: 1.1rem;">System Mode</h3>
+          <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="btn-mode-auto" style="flex: 1; padding: 8px 15px; font-size: 0.95rem; font-weight: bold; border: 2px solid #ccc; border-radius: 6px; cursor: pointer; background-color: #f8f9fa; color: #333; transition: 0.3s;">AUTO</button>
+            <button id="btn-mode-manual" style="flex: 1; padding: 8px 15px; font-size: 0.95rem; font-weight: bold; border: 2px solid #ccc; border-radius: 6px; cursor: pointer; background-color: #f8f9fa; color: #333; transition: 0.3s;">MANUAL</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="manual-controls-section" style="margin-bottom: 20px; transition: opacity 0.3s ease;">
+        <div class="control-card" style="text-align: center; padding: 15px;">
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 120px;">
+              <button id="pumpBtn" class="big-action-btn off" style="width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 6px;">Water Pump: OFF</button>
+              <div id="statusPump" style="margin-top: 8px; font-size: 0.8rem; color: #888;">Live: 🔴 OFF</div>
+            </div>
+            
+            <div style="flex: 1; min-width: 120px;">
+              <button id="fanBtn" class="big-action-btn off" style="width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 6px;">Vent Fan: OFF</button>
+              <div id="statusFan" style="margin-top: 8px; font-size: 0.8rem; color: #888;">Live: 🔴 OFF</div>
+            </div>
+            
+            <div style="flex: 1; min-width: 120px;">
+              <button id="lightBtn" class="big-action-btn off" style="width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 6px;">Grow Lights: OFF</button>
+              <div id="statusLight" style="margin-top: 8px; font-size: 0.8rem; color: #888;">Live: 🔴 OFF</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -138,26 +169,6 @@
       </div>
     </section>
 
-    <section id="controlsPage" class="page-section hidden">
-      <header class="page-header">
-        <h1>Manual Controls</h1>
-        <button id="modeSwitch" data-mode="manual" class="mode-btn">MANUAL</button>
-      </header>
-      <div class="card-grid">
-        <div class="control-card">
-          <button id="pumpBtn" class="big-action-btn off">Water Pump: OFF</button>
-          <div id="statusPump" style="margin-top: 12px; font-size: 0.9rem; color: #888;">Live: 🔴 OFF</div>
-        </div>
-        <div class="control-card">
-          <button id="fanBtn" class="big-action-btn off">Vent Fan: OFF</button>
-          <div id="statusFan" style="margin-top: 12px; font-size: 0.9rem; color: #888;">Live: 🔴 OFF</div>
-        </div>
-        <div class="control-card">
-          <button id="lightBtn" class="big-action-btn off">Grow Lights: OFF</button>
-          <div id="statusLight" style="margin-top: 12px; font-size: 0.9rem; color: #888;">Live: 🔴 OFF</div>
-        </div>
-      </div>
-    </section>
 
     <section id="setupPage" class="page-section hidden">
       <header class="page-header">
@@ -257,12 +268,15 @@
       </header>
       <div class="card-grid">
         <div class="setup-card" style="grid-column: 1 / -1;">
-          <h3>Daily Tracking</h3>
+          <h3>📅 Daily Tracking</h3>
           <div id="trackingList" class="table-container">Loading data...</div>
         </div>
+
         <div class="setup-card" style="grid-column: 1 / -1;">
-          <h3>Past Grow Cycles</h3>
-          <div id="historyList" class="table-container">Loading data...</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">📈 Environment History</h3>
+            <input type="date" id="graphDatePicker" class="styled-input" style="width: auto; padding: 5px 10px;">
+          </div>
         </div>
       </div>
     </section>
@@ -271,6 +285,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

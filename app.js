@@ -32,8 +32,8 @@ auth.onAuthStateChanged((user) => {
     appContent.classList.remove('hidden');
   } else {
     // User is logged out: Show login, hide dashboard
-    loginScreen.classList.remove('hidden');
-    appContent.classList.add('hidden');
+    //loginScreen.classList.remove('hidden');
+    //appContent.classList.add('hidden');
   }
 });
 
@@ -272,95 +272,127 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el) el.innerText = Math.round(safeNumber(snap.val())) + " mg/kg";
     });  
 
-    // ===================================//
-    //           MANUAL CONTROLS          //
-    // ===================================//
-    const fanBtn = document.getElementById("fanBtn");
-    const pumpBtn = document.getElementById("pumpBtn");
-    const lightBtn = document.getElementById("lightBtn");
-    const modeSwitchBtn = document.getElementById("modeSwitch");
+// ===================================//
+  //           MANUAL CONTROLS          //
+  // ===================================//
+  
+  // 1. Get UI Elements
+  const btnAuto = document.getElementById("btn-mode-auto");
+  const btnManual = document.getElementById("btn-mode-manual");
+  const manualControlsSection = document.getElementById("manual-controls-section");
 
-    let currentMode = "manual"; // Default mode
-    let fanState = false;
-    let pumpState = false;
-    let lightState = false;
+  const fanBtn = document.getElementById("fanBtn");
+  const pumpBtn = document.getElementById("pumpBtn");
+  const lightBtn = document.getElementById("lightBtn");
 
-    // --- 1. FIREBASE LISTENER (Updates the UI when database changes) ---
+  let currentMode = "manual"; // Default mode
+  let fanState = false;
+  let pumpState = false;
+  let lightState = false;
+
+    // --- 2. MODE SWITCH LOGIC ---
+    // Listen for clicks on the new buttons
+    if (btnAuto) {
+      btnAuto.addEventListener("click", () => {
+        modeRef.set("auto");
+        // Turn off manual actuators when switching to auto to be safe
+        if (fanCmdRef) fanCmdRef.set(false);
+        if (pumpCmdRef) pumpCmdRef.set(false);
+        if (lightCmdRef) lightCmdRef.set(false);
+      });
+    }
+
+    if (btnManual) {
+      btnManual.addEventListener("click", () => {
+        modeRef.set("manual");
+      });
+    }
+
+    // Sync UI when Firebase mode changes
     modeRef.on("value", snap => {
-        currentMode = snap.val() == "auto" ? "auto" : "manual";
-        if (modeSwitchBtn) {
-            modeSwitchBtn.textContent = currentMode.toUpperCase();
-            modeSwitchBtn.dataset.mode = currentMode;
+      currentMode = snap.val() === "auto" ? "auto" : "manual";
+      
+      if (currentMode === "auto") {
+        // Highlight AUTO button Green
+        if (btnAuto) {
+          btnAuto.style.backgroundColor = "#2ecc71";
+          btnAuto.style.color = "white";
+          btnAuto.style.borderColor = "#27ae60";
         }
+        if (btnManual) {
+          btnManual.style.backgroundColor = "#f8f9fa";
+          btnManual.style.color = "#333";
+          btnManual.style.borderColor = "#ccc";
+        }
+        // Dim and lock manual controls
+        if (manualControlsSection) {
+          manualControlsSection.style.opacity = "0.4";
+          manualControlsSection.style.pointerEvents = "none";
+        }
+      } else {
+        // Highlight MANUAL button Orange
+        if (btnAuto) {
+          btnAuto.style.backgroundColor = "#f8f9fa";
+          btnAuto.style.color = "#333";
+          btnAuto.style.borderColor = "#ccc";
+        }
+        if (btnManual) {
+          btnManual.style.backgroundColor = "#f39c12"; 
+          btnManual.style.color = "white";
+          btnManual.style.borderColor = "#e67e22";
+        }
+        // Wake up manual controls
+        if (manualControlsSection) {
+          manualControlsSection.style.opacity = "1";
+          manualControlsSection.style.pointerEvents = "auto";
+        }
+      }
+    });
 
-        // Disable buttons in auto mode
-        const isDisabled = currentMode !== "manual";
-        [fanBtn, pumpBtn, lightBtn].forEach(btn => {
-            if (!btn) return;
-            btn.disabled = isDisabled;
-            btn.style.opacity = isDisabled ? "0.5" : "1";
-            btn.style.cursor = isDisabled ? "not-allowed" : "pointer";
-        }); // <-- Loop safely closes here
-    }); // <-- Firebase listener safely closes here
-    
+    // --- 3. ACTUATOR UI & CLICKS ---
     // Helper to change button text and color
     function updateBtnUI(btn, label, state) {
-    if (!btn) return;
-    btn.textContent = `${label}: ${state ? "ON" : "OFF"}`;
-    if (state) {
-      btn.classList.add("on");
-      btn.classList.remove("off");
-    } else {
-      btn.classList.add("off");
-      btn.classList.remove("on");
+      if (!btn) return;
+      btn.textContent = `${label}: ${state ? "ON" : "OFF"}`;
+      if (state) {
+        btn.classList.add("on");
+        btn.classList.remove("off");
+      } else {
+        btn.classList.add("off");
+        btn.classList.remove("on");
+      }
     }
-  }
 
-  // Update button states based on database values
-  fanCmdRef.on("value", snap => {
-    fanState = !!snap.val();
-    updateBtnUI(fanBtn, "Vent Fan", fanState);
-  });
+    // Update button states based on database values
+    fanCmdRef.on("value", snap => {
+      fanState = !!snap.val();
+      updateBtnUI(fanBtn, "Vent Fan", fanState);
+    });
     pumpCmdRef.on("value", snap => {
-    pumpState = !!snap.val();
-    updateBtnUI(pumpBtn, "Water Pump", pumpState);
-  });
+      pumpState = !!snap.val();
+      updateBtnUI(pumpBtn, "Water Pump", pumpState);
+    });
     lightCmdRef.on("value", snap => {
-    lightState = !!snap.val();
-    updateBtnUI(lightBtn, "Grow Light", lightState);
-  });
+      lightState = !!snap.val();
+      updateBtnUI(lightBtn, "Grow Light", lightState);
+    });
 
-  // Send commands to Firebase when buttons are clicked
-  if (fanBtn) {
-    fanBtn.addEventListener("click", () => {
+    // Send commands to Firebase when buttons are clicked
+    if (fanBtn) {
+      fanBtn.addEventListener("click", () => {
         if (currentMode === "manual") fanCmdRef.set(!fanState);
-    });
-}
+      });
+    }
     if (pumpBtn) {
-    pumpBtn.addEventListener("click", () => {
+      pumpBtn.addEventListener("click", () => {
         if (currentMode === "manual") pumpCmdRef.set(!pumpState);
-    });
-
-}
+      });
+    }
     if (lightBtn) {
-    lightBtn.addEventListener("click", () => {
+      lightBtn.addEventListener("click", () => {
         if (currentMode === "manual") lightCmdRef.set(!lightState);
-    });
-}
-
-    if (modeSwitchBtn) {
-      modeSwitchBtn.addEventListener("click", () => {
-        const newMode = currentMode === "auto" ? "manual" : "auto";
-        modeRef.set(newMode);
-
-        if (newMode === "auto") {
-          if (fanCmdRef) fanCmdRef.set(false);
-          if (pumpCmdRef) pumpCmdRef.set(false);
-          if (lightCmdRef) lightCmdRef.set(false); 
-
-        }
-      })
-    };
+      });
+    }
 
     // ==========================================
   //       LIVE ACTUATOR STATUS LISTENERS
@@ -1052,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <th style="padding: 10px;">Date</th>
             <th style="padding: 10px;">Sunlight</th>
             <th style="padding: 10px;">Grow Light</th>
-            <th style="padding: 10px;">Waterings</th>
+            <th style="padding: 10px;">Watering Details</th>
           </tr>
         </thead>
         <tbody>
@@ -1074,7 +1106,49 @@ document.addEventListener('DOMContentLoaded', () => {
       const artH = Math.floor(artTotal / 60);
       const artM = artTotal % 60;
 
-      const waterings = entry.water_count || 0;
+      // Get the total count (defaults to 0 if not found)
+      let waterCount = entry.water_count !== undefined ? entry.water_count : 0;
+      
+      // --- NEW TABLE WATERING LOGIC ---
+      let wateringDetails = "";
+      
+      if (entry.watering_log) {
+        // NEW DATA: Make it a clickable toggle that shows the count on the outside
+        let timelineHTML = "";
+        for (const [time, action] of Object.entries(entry.watering_log)) {
+
+          // --- NEW: Convert 24-hour time to AM/PM ---
+          let [hourString, minuteString] = time.split(':');
+          let hour = parseInt(hourString);
+          let ampm = hour >= 12 ? 'PM' : 'AM';
+          hour = hour % 12;
+          hour = hour ? hour : 12; // the hour '0' should be '12'
+          let displayTime = `${hour}:${minuteString} ${ampm}`;
+          // Color code actions
+          let color = "#888"; 
+          if (action === "Watered") color = "#3498db"; // Blue
+          if (action === "Skipped") color = "#e74c3c"; // Red
+          if (action === "Manual") color = "#f39c12";  // Orange
+          
+          timelineHTML += `<div style="margin-bottom: 3px; font-size: 0.9em;"><b>${displayTime}</b> <span style="color: ${color};">${action}</span></div>`;        
+}
+        
+        // The <details> tag creates a clickable drop-down automatically
+        wateringDetails = `
+          <details style="cursor: pointer;">
+            <summary style="font-weight: bold; color: #2c3e50; outline: none;">Watered ${waterCount} times</summary>
+            <div style="margin-top: 5px; padding-left: 10px; border-left: 2px solid #ccc;">
+              ${timelineHTML}
+            </div>
+          </details>
+        `;
+      } else if (entry.water_count !== undefined) {
+        // OLD LEGACY DATA: Just show the plain text because there is no timeline to expand
+        wateringDetails = `<span style="color: #666;">Watered ${waterCount} times</span>`;
+      } else {
+        // NO DATA YET
+        wateringDetails = `<span style="color: #888;">No schedule run yet</span>`;
+      }
 
       // Build the row with some slight color coding for readability
       tableHTML += `
@@ -1082,7 +1156,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td style="padding: 10px; font-weight: bold;">${date}</td>
           <td style="padding: 10px;">${sunH}h ${sunM}m</td>
           <td style="padding: 10px;">${artH}h ${artM}m</td>
-          <td style="padding: 10px; color: #007bff;">${waterings} times</td>
+          <td style="padding: 10px;">${wateringDetails}</td>
         </tr>
       `;
     });
@@ -1091,3 +1165,108 @@ document.addEventListener('DOMContentLoaded', () => {
     trackingList.innerHTML = tableHTML;
   });
 }});
+
+// ===================================//
+//      CHAPTER 4: HISTORY GRAPH      //
+// ===================================//
+
+const ctx = document.getElementById('thesisChart');
+const datePicker = document.getElementById('graphDatePicker');
+let myChart = null; // We use this to remember the current chart so we can erase it before drawing a new one
+
+if (ctx && datePicker) {
+  // 1. Set the Date Picker to Today automatically
+  const today = new Date();
+  // Format as YYYY-MM-DD (e.g., "2026-03-28")
+  const localDate = today.getFullYear() + '-' + 
+                    String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(today.getDate()).padStart(2, '0');
+  
+  datePicker.value = localDate;
+
+  // 2. Function to load data from Firebase and draw the graph
+  function loadGraph(dateKey) {
+    const historyRef = firebase.database().ref('history/' + dateKey);
+    
+    historyRef.once('value', snapshot => {
+      const data = snapshot.val();
+
+      // If there is no data for this day, just clear the chart
+      if (!data) {
+        if (myChart) myChart.destroy();
+        return;
+      }
+
+      // Arrays to hold our graphed data
+      const timeLabels = [];
+      const tempData = [];
+      const humidData = [];
+      const soilData = [];
+      const luxData = [];
+
+      // Sort the hours so they read left-to-right (17:00, 18:00, etc.)
+      const hours = Object.keys(data).sort();
+
+      hours.forEach(hour => {
+        timeLabels.push(hour);
+        tempData.push(data[hour].temp || 0);
+        humidData.push(data[hour].humid || 0);
+        soilData.push(data[hour].soil_avg || 0);
+        luxData.push(data[hour].lux || 0);
+      });
+
+      // Erase the old chart if one exists (prevents glitching when changing dates)
+      if (myChart) {
+        myChart.destroy();
+      }
+
+      // 3. Draw the new Chart
+      myChart = new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: [
+            { label: 'Temp (°C)', data: tempData, borderColor: '#e74c3c', backgroundColor: '#e74c3c', tension: 0.3, yAxisID: 'y' },
+            { label: 'Humidity (%)', data: humidData, borderColor: '#3498db', backgroundColor: '#3498db', tension: 0.3, yAxisID: 'y' },
+            { label: 'Soil Avg (%)', data: soilData, borderColor: '#2ecc71', backgroundColor: '#2ecc71', tension: 0.3, yAxisID: 'y' },
+            { label: 'Lux', data: luxData, borderColor: '#f1c40f', backgroundColor: '#f1c40f', tension: 0.3, yAxisID: 'y1' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          scales: {
+            y: {
+              type: 'linear',
+              display: true,
+              position: 'left',
+              title: { display: true, text: 'Climate & Soil' },
+              suggestedMin: 0,
+              suggestedMax: 100
+            },
+            y1: {
+              type: 'linear',
+              display: true,
+              position: 'right',
+              title: { display: true, text: 'Light (Lux)' },
+              grid: { drawOnChartArea: false }, // Don't draw background lines for this axis to keep it clean
+              suggestedMin: 0
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // 4. Initial load for today's data
+  loadGraph(localDate);
+
+  // 5. If the user picks a new date, load that data instead!
+  datePicker.addEventListener('change', (e) => {
+    loadGraph(e.target.value);
+  });
+}
