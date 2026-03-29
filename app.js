@@ -1246,55 +1246,62 @@ function refreshSoilHealthUI() {
 
 const ctx = document.getElementById('thesisChart');
 const datePicker = document.getElementById('graphDatePicker');
-let myChart = null; // We use this to remember the current chart so we can erase it before drawing a new one
+let myChart = null; 
+
+// --- ADD THIS HELPER FUNCTION HERE ---
+function formatToStandardTime(timeStr) {
+  if (!timeStr) return "";
+  let [hour, min] = timeStr.split(':');
+  let h = parseInt(hour);
+  let ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  h = h ? h : 12; // if hour is 0, change to 12
+  return h + " " + ampm;
+}
+// -------------------------------------
 
 if (ctx && datePicker) {
-  // 1. Set the Date Picker to Today automatically
   const today = new Date();
-  // Format as YYYY-MM-DD (e.g., "2026-03-28")
   const localDate = today.getFullYear() + '-' + 
                     String(today.getMonth() + 1).padStart(2, '0') + '-' + 
                     String(today.getDate()).padStart(2, '0');
   
   datePicker.value = localDate;
 
-  // 2. Function to load data from Firebase and draw the graph
   function loadGraph(dateKey) {
     const historyRef = firebase.database().ref('history/' + dateKey);
     
     historyRef.once('value', snapshot => {
       const data = snapshot.val();
 
-      // If there is no data for this day, just clear the chart
       if (!data) {
         if (myChart) myChart.destroy();
         return;
       }
 
-      // Arrays to hold our graphed data
       const timeLabels = [];
       const tempData = [];
       const humidData = [];
       const soilData = [];
       const luxData = [];
 
-      // Sort the hours so they read left-to-right (17:00, 18:00, etc.)
       const hours = Object.keys(data).sort();
 
       hours.forEach(hour => {
-        timeLabels.push(hour);
+        // --- CHANGE THIS LINE TO USE THE HELPER ---
+        timeLabels.push(formatToStandardTime(hour)); 
+        // ------------------------------------------
+        
         tempData.push(data[hour].temp || 0);
         humidData.push(data[hour].humid || 0);
         soilData.push(data[hour].soil_avg || 0);
         luxData.push(data[hour].lux || 0);
       });
 
-      // Erase the old chart if one exists (prevents glitching when changing dates)
       if (myChart) {
         myChart.destroy();
       }
 
-      // 3. Draw the new Chart
       myChart = new Chart(ctx.getContext('2d'), {
         type: 'line',
         data: {
@@ -1314,6 +1321,15 @@ if (ctx && datePicker) {
             intersect: false,
           },
           scales: {
+            // --- ADDED THIS SECTION TO MAKE LABELS CLEANER ---
+            x: {
+              ticks: {
+                autoSkip: true,
+                maxTicksLimit: 12, // Shows labels like 12AM, 2AM, 4AM etc so it's not crowded
+                maxRotation: 0
+              }
+            },
+            // ------------------------------------------------
             y: {
               type: 'linear',
               display: true,
@@ -1327,7 +1343,7 @@ if (ctx && datePicker) {
               display: true,
               position: 'right',
               title: { display: true, text: 'Light (Lux)' },
-              grid: { drawOnChartArea: false }, // Don't draw background lines for this axis to keep it clean
+              grid: { drawOnChartArea: false }, 
               suggestedMin: 0
             }
           }
@@ -1336,10 +1352,8 @@ if (ctx && datePicker) {
     });
   }
 
-  // 4. Initial load for today's data
   loadGraph(localDate);
 
-  // 5. If the user picks a new date, load that data instead!
   datePicker.addEventListener('change', (e) => {
     loadGraph(e.target.value);
   });
