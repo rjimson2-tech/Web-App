@@ -110,6 +110,9 @@ connectedRef.on('value', (snap) => {
   }
 });
 
+let lastHeartbeat = Date.now();
+let isSyncing = { pump: false, fan: false, light: false };
+
 // Grab the HTML element from your new sensor card
 const nextWateringDisplay = document.getElementById('next-watering-display');
 
@@ -170,6 +173,24 @@ function safeNumber(val, fallback = 0) {
     const n = Number(val);
     return Number.isFinite(n) ? n : fallback;
 }
+
+// HELPER: Update card color based on value limits
+function updateHealthStatus(elementId, value, minHealth, maxHealth) {
+  const card = document.getElementById(elementId);
+  if (!card) return;
+
+  // Clear existing status
+  card.classList.remove('status-good', 'status-warning', 'status-danger');
+
+  if (value < minHealth || value > maxHealth) {
+    card.classList.add('status-danger'); // Critical: Too cold/hot or too dry/wet
+  } else if (value < (minHealth + 3) || value > (maxHealth - 3)) {
+    card.classList.add('status-warning'); // Warning: Getting close to the edge
+  } else {
+    card.classList.add('status-good'); // Healthy
+  }
+}
+
 // ====================//
 //   NAVIGATION & UI   //
 // ====================//
@@ -221,32 +242,69 @@ document.addEventListener('DOMContentLoaded', () => {
   //====================== //
   // SENSOR DATA UPDATES   //
   // ======================//
+  // 1. Create a "memory" to hold the latest values for all 3 soil sensors
+let latestSoilValues = {
+  zone1: 0,
+  zone2: 0,
+  zone3: 0
+};
+
+// 2. Create a function to calculate the average and update the card color
+function refreshSoilHealthUI() {
+  const avg = (latestSoilValues.zone1 + latestSoilValues.zone2 + latestSoilValues.zone3) / 3;
+  
+  // Update the Soil Card color based on the average
+  // (Healthy range: 40% to 85% - adjust these numbers as needed)
+  updateHealthStatus("soilCard", avg, 60, 85);
+  
+  // Optional: If you have a place to show the average number, you can update it here
+  console.log("Current Soil Average:", avg.toFixed(1) + "%");
+}
 
   // Temperature
     tempRef.on("value", snap => {
+    const val = safeNumber(snap.val());
     const el = document.getElementById("tempDisplay");
-    if (el) el.innerText = safeNumber(snap.val()).toFixed(1) + " °C";
+    if (el) el.innerText = val.toFixed(1) + " °C";
+
+    updateHealthStatus("climateCard", val, 18, 32);
+    lastHeartbeat = Date.now(); // Update heartbeat on every new temperature reading
   });
   // Humidity
     humidityRef.on("value", snap => {
     const el = document.getElementById("humidityDisplay");
     if (el) el.innerText = safeNumber(snap.val()).toFixed(1) + " %";
   });
+
   // Soil 1
-    soil1Ref.on("value", snap => {
+  soil1Ref.on("value", snap => {
+    const val = Math.round(safeNumber(snap.val()));
     const el = document.getElementById("soilDisplay1");
-    if (el) el.innerText = Math.round(safeNumber(snap.val())) + " %";
-    });
-  // Soil 2
-    soil2Ref.on("value", snap => {
-    const el = document.getElementById("soilDisplay2");
-    if (el) el.innerText = Math.round(safeNumber(snap.val())) + " %";
+    if (el) el.innerText = val + " %";
+    
+    latestSoilValues.zone1 = val; // Store the value
+    refreshSoilHealthUI();        // Recalculate average and update color
   });
+
+  // Soil 2
+  soil2Ref.on("value", snap => {
+    const val = Math.round(safeNumber(snap.val()));
+    const el = document.getElementById("soilDisplay2");
+    if (el) el.innerText = val + " %";
+    
+    latestSoilValues.zone2 = val; // Store the value
+    refreshSoilHealthUI();        // Recalculate average and update color
+  });
+
   // Soil 3
-    soil3Ref.on("value", snap => {
+  soil3Ref.on("value", snap => {
+    const val = Math.round(safeNumber(snap.val()));
     const el = document.getElementById("soilDisplay3");
-    if (el) el.innerText = Math.round(safeNumber(snap.val())) + " %";
-    });
+    if (el) el.innerText = val + " %";
+    
+    latestSoilValues.zone3 = val; // Store the value
+    refreshSoilHealthUI();        // Recalculate average and update color
+  });
   // Light
     lightRef.on("value", snap => {
     const el = document.getElementById("lightDisplay");
@@ -353,10 +411,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Helper to change button text and color
     function updateBtnUI(btn, label, state) {
       if (!btn) return;
+
       btn.textContent = `${label}: ${state ? "ON" : "OFF"}`;
       if (state) {
         btn.classList.add("on");
-        btn.classList.remove("off");
+        btn.classList.remove("off", "syncing");
       } else {
         btn.classList.add("off");
         btn.classList.remove("on");
@@ -961,9 +1020,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = snap.val();
     
     if (data) {
-      const waterCount = data.water_count || 0;
       const lightMins = data.light_minutes || 0;
       const sunlightMins = data.sunlight_minutes || 0;
+      const waterCount = data.water_count || 0;
       
       // Math: Convert total minutes into Hours and Minutes
       const lightHrs = Math.floor(lightMins / 60);
@@ -973,6 +1032,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const sunRemainderMins = sunlightMins % 60;
       
       if (pumpCountDisplay) pumpCountDisplay.textContent = waterCount + " times";
+      if (data.watering_log) {
+        const logTimes = Object.keys(data.watering_log);
+        if (logTimes.length > 0) {
+          logTimes.sort();
+          const latestTime = logTimes[logTimes.length - 1];
+
+          // Convert 24h to 12h format (optional but user-friendly)
+        let [hh, mm] = latestTime.split(':');
+        let hour = parseInt(hh);
+        let ampm = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12 || 12;
+
+        document.getElementById("lastWateredTime").textContent = `Last: ${hour}:${mm} ${ampm}`;
+        }
+      }
       if (lightHoursDisplay) lightHoursDisplay.textContent = `${lightHrs} hrs ${lightRemainderMins} mins`;
       if (sunlightHoursDisplay) sunlightHoursDisplay.textContent = `${sunHrs} hrs ${sunRemainderMins} mins`;
       
@@ -1268,5 +1342,115 @@ if (ctx && datePicker) {
   // 5. If the user picks a new date, load that data instead!
   datePicker.addEventListener('change', (e) => {
     loadGraph(e.target.value);
+  });
+}
+
+// Run this every 10 seconds to check if the greenhouse is still "alive"
+setInterval(() => {
+  const lastSeenEl = document.getElementById("last-seen-text");
+  const statusDot = document.getElementById("status-dot");
+  
+  const secondsPageHasBeenQuiet = Math.floor((Date.now() - lastHeartbeat) / 1000);
+
+  if (secondsPageHasBeenQuiet < 60) {
+    // Hardware updated less than a minute ago
+    lastSeenEl.innerText = `Hardware: Online (Just now)`;
+    statusDot.innerText = "🟢";
+    statusDot.classList.add("pulse-green");
+  } else if (secondsPageHasBeenQuiet < 3600) {
+    // Hardware updated a few minutes ago
+    const mins = Math.floor(secondsPageHasBeenQuiet / 60);
+    lastSeenEl.innerText = `Hardware: Last seen ${mins}m ago`;
+    statusDot.innerText = "🟡";
+    statusDot.classList.remove("pulse-green");
+  } else {
+    // Hardware hasn't talked to us in over an hour
+    lastSeenEl.innerText = `Hardware: OFFLINE`;
+    statusDot.innerText = "🔴";
+    statusDot.classList.remove("pulse-green");
+  }
+}, 10000); // Check every 10 seconds
+
+// ==========================================
+//      CHAPTER 4: MASTER CSV EXPORT
+// ==========================================
+const downloadBtn = document.getElementById("downloadCsvBtn");
+
+if (downloadBtn) {
+  downloadBtn.addEventListener("click", async () => {
+    const selectedDate = document.getElementById("graphDatePicker").value;
+    if (!selectedDate) {
+      alert("Please select a date first!");
+      return;
+    }
+
+    // 1. Get BOTH History and Daily Tracking from Firebase
+    const historyRef = firebase.database().ref('history/' + selectedDate);
+    const trackingRef = firebase.database().ref('tracking/daily/' + selectedDate);
+
+    const [histSnap, trackSnap] = await Promise.all([
+      historyRef.once('value'),
+      trackingRef.once('value')
+    ]);
+
+    const histData = histSnap.val();
+    const trackData = trackSnap.val();
+
+    if (!histData && !trackData) {
+      alert("No data found for this date.");
+      return;
+    }
+
+    let csvContent = `GREENHOUSE MASTER REPORT: ${selectedDate}\n\n`;
+
+    // 2. PART A: DAILY SUMMARY
+    csvContent += "--- DAILY SUMMARY ---\n";
+    csvContent += `Total Waterings,${trackData?.water_count || 0} times\n`;
+    csvContent += `Grow Light Duration,${trackData?.light_minutes || 0} mins\n`;
+    csvContent += `Sunlight Duration,${trackData?.sunlight_minutes || 0} mins\n\n`;
+
+    // 3. PART B: WATERING LOG (When exactly did it water?)
+    csvContent += "--- WATERING LOG ---\n";
+    csvContent += "Time,Action\n";
+    if (trackData?.watering_log) {
+      Object.keys(trackData.watering_log).sort().forEach(time => {
+        csvContent += `${time},${trackData.watering_log[time]}\n`;
+      });
+    } else {
+      csvContent += "No watering events recorded\n";
+    }
+    csvContent += "\n";
+
+    // 4. PART C: HOURLY ENVIRONMENT DATA
+    csvContent += "--- HOURLY ENVIRONMENT LOG ---\n";
+    csvContent += "Time,Temp (C),Humidity (%),Soil Avg (%),Lux,Nitrogen,Phosphorus,Potassium\n";
+    
+    if (histData) {
+      Object.keys(histData).sort().forEach(hour => {
+        const row = histData[hour];
+        const line = [
+          hour,
+          row.temp || 0,
+          row.humid || 0,
+          row.soil_avg || 0,
+          row.lux || 0,
+          row.nitrogen || 0,
+          row.phosphorus || 0,
+          row.potassium || 0
+        ].join(",");
+        csvContent += line + "\n";
+      });
+    }
+
+    // 5. DOWNLOAD THE FILE
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Master_Report_${selectedDate}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   });
 }

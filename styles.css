@@ -81,6 +81,19 @@ body {
   color: var(--primary-green);
 }
 
+/* Pulsing Green Dot for 'Live' status */
+.pulse-green {
+  color: #2ecc71;
+  text-shadow: 0 0 8px rgba(46, 204, 113, 0.6);
+  animation: pulse-animation 2s infinite;
+}
+
+@keyframes pulse-animation {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
 /* ========================================= */
 /* TOAST NOTIFICATION STYLES           */
 /* ========================================= */
@@ -190,19 +203,40 @@ body {
 
 .sensor-row {
   display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--bg-color);
+  justify-content: space-between; /* Pushes label to left, value to right */
+  align-items: center;           /* Keeps them perfectly centered vertically */
+  padding: 12px 0;               /* Even spacing for all rows */
+  border-bottom: 1px solid #f1f4f8;
 }
 
 .sensor-row:last-child {
   border-bottom: none;
 }
 
-.sensor-value {
-  font-weight: bold;
-  font-size: 1.1rem;
+.status-good {
+  border-left: 6px solid #2ecc71 !important;
+  background: linear-gradient(to right, #fafffa, #ffffff);
 }
+
+.status-warning {
+  border-left: 6px solid #f1c40f !important;
+  background: linear-gradient(to right, #fffdf5, #ffffff);
+}
+
+.status-danger {
+  border-left: 6px solid #e74c3c !important;
+  background: linear-gradient(to right, #fffaf9, #ffffff);
+}
+
+.sensor-value {
+  font-size: 1.1rem;             /* Standard size */
+  font-weight: 700;              /* Strong, matching bold */
+  color: #2c3e50;                /* Professional dark blue-gray */
+  text-align: right;
+  flex-shrink: 0;  
+}
+
+
 
 /* Buttons & Inputs */
 .styled-input {
@@ -276,6 +310,27 @@ button:disabled {
   color: white;
 }
 
+/* The 'Syncing' state - when you click but hardware hasn't replied yet */
+.big-action-btn.syncing {
+  background-color: #bdc3c7 !important; /* Neutral Gray */
+  color: #7f8c8d !important;
+  cursor: wait;
+  opacity: 0.7;
+  position: relative;
+}
+
+/* Optional: Add a subtle pulse to the 'Syncing' button */
+.syncing::after {
+  content: " ...";
+  animation: loading-dots 1.5s infinite;
+}
+
+@keyframes loading-dots {
+  0% { content: " ."; }
+  33% { content: " .."; }
+  66% { content: " ..."; }
+}
+
 /* Checklists & Tables */
 .checklist label {
   display: block;
@@ -289,6 +344,122 @@ button:disabled {
 }
 
 .table-container {
-  overflow-x: auto;
-  margin-top: 15px;
+  max-height: 400px; /* Adjust this height to your liking */
+  overflow-y: auto;  /* Adds a scrollbar only when needed */
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  position: relative;
+}
+
+/* ==========================================
+   🖨️ THE "FORCE-SHOW" PRINT ENGINE (FINAL)
+   ========================================== */
+@media print {
+  /* 1. Reset the body so it's a clean white slate */
+  body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 2. Hide everything that isn't the tracking page data */
+  #login-screen, 
+  .topnav, 
+  #dashboardPage, 
+  #setupPage, 
+  .toast-notification, 
+  button, 
+  .outline-btn, 
+  .primary-btn,
+  input[type="date"],
+  .nav-status {
+    display: none !important;
+  }
+
+  /* 3. FORCE the tracking page to show on paper */
+  /* This is the most important part because it overrides your .hidden class */
+  #app-content {
+    display: block !important;
+  }
+
+  #trackingPage {
+    display: block !important;   /* FORCE-SHOW even if hidden in HTML */
+    visibility: visible !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .container {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 4. Format the Table for A4 paper */
+  .table-container {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .data-table {
+    display: table !important;
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  .data-table th, .data-table td {
+    border: 1px solid #000 !important;
+    padding: 8px !important;
+    color: black !important;
+    text-align: left !important;
+  }
+
+  .data-table th {
+    background-color: #f0f0f0 !important;
+    print-color-adjust: exact;         /* Standard version */
+    -webkit-print-color-adjust: exact; /* Fixes yellow squiggly/Chrome version */
+  }
+
+  .data-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: #f8f9fa !important;
+  z-index: 10;
+  box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1); /* Subtle shadow so it looks "above" the data */
+}
+
+  .data-table thead {
+    display: table-header-group !important; /* This is the magic for repeating headers */
+  }
+
+  .data-table tr {
+    page-break-inside: avoid; /* Prevents a single row from being split across two pages */
+    page-break-after: auto;
+  }
+
+  /* 5. Format the Graph for A4 paper */
+  canvas {
+    display: block !important;
+    max-width: 100% !important;
+    max-height: 400px !important;
+    margin-top: 20px;
+  }
+
+  /* 6. Professional Research Header for your Thesis */
+  #trackingPage::before {
+    content: "GREENHOUSE RESEARCH DATA REPORT";
+    display: block;
+    text-align: center;
+    font-size: 20pt;
+    font-weight: bold;
+    color: #27ae60;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #2ecc71;
+    padding-bottom: 5px;
+  }
 }

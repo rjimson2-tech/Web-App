@@ -31,7 +31,9 @@
       <a href="#" class="nav-item" data-target="trackingPage">Tracking</a>
     </div>
     <div class="nav-status">
-    <span id="status-dot">🔴</span> <span id="status-text" style="color: gray;">Checking connection...</span>
+    <span id="status-dot">🔴</span> 
+    <span id="status-text" style="color: gray;">Checking...</span>
+    <small id="last-seen-text" style="display: block; font-size: 0.7rem; color: #888;">Hardware: Waiting...</small>  
     <button id="logout-btn" class="danger-btn" style="margin-left: 15px; padding: 5px 10px;">Log Out</button>
   </div>
   </nav>
@@ -90,7 +92,7 @@
       </div>
 
       <div class="card-grid">
-        <div class="sensor-card">
+        <div id="climateCard" class="sensor-card">
           <h3>🌡️ Climate</h3>
           <div class="sensor-row">
             <span>Temperature <span id="targetTemp" class="target-label"></span></span>
@@ -102,7 +104,7 @@
           </div>
         </div>
 
-        <div class="sensor-card">
+        <div id="soilCard" class="sensor-card">
           <h3>💧 Soil Moisture</h3>
           <div class="sensor-row">
             <span>Zone Targets: <span id="targetSoil" class="target-label"></span></span>
@@ -142,12 +144,15 @@
         </div>
 
         <div class="tracking-panel" style="margin-top: 20px;">
-        <div class="sensor-card" style="width: 100%;">
+        <div class="sensor-card">
           <h3>📊 Today's System Usage</h3>
           <div class="sensor-row">
             <span>Water Pump Cycles</span>
+            <div style="text-align: right;">
             <span id="pumpCountDisplay" class="sensor-value">0 times</span>
+            <div id="lastWateredTime" style="font-size: 0.75rem; color: var(--text-muted);">Last: Never</div>
           </div>
+        </div>
           <div class="sensor-row">
             <span>Grow Light Runtime</span>
             <span id="lightHoursDisplay" class="sensor-value">0 hrs 0 mins</span>
@@ -265,6 +270,9 @@
     <section id="trackingPage" class="page-section hidden">
       <header class="page-header">
         <h1>Data & History</h1>
+        <button id="downloadCsvBtn" class="primary-btn" style="width: auto; padding: 5px 15px; background-color: #3498db;">📥 Export CSV</button>
+        <button onclick="window.print()" class="outline-btn" style="width: auto; border-color: #2c3e50; color: #2c3e50;">🖨️ Print Tracking Report</button>
+
       </header>
       <div class="card-grid">
         <div class="setup-card" style="grid-column: 1 / -1;">
@@ -276,6 +284,8 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin: 0;">📈 Environment History</h3>
             <input type="date" id="graphDatePicker" class="styled-input" style="width: auto; padding: 5px 10px;">
+
+            
           </div>
           
           <div style="position: relative; height: 400px; width: 100%;">
