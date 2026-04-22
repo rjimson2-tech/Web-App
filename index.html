@@ -30,23 +30,171 @@
       <a href="#" class="nav-item" data-target="setupPage">Setup</a>
       <a href="#" class="nav-item" data-target="trackingPage">Tracking</a>
     </div>
+
   <div class="nav-status">
   <span id="status-dot">🟢</span> 
   <div class="status-info">
     <span id="status-text" style="color: green;">Connected to Database</span>
     <small id="last-seen-text">Hardware: Waiting...</small>
   </div>
-  <button id="logout-btn" class="logout-pill">Log Out</button>
+<!-- Notification Bell -->
+  <div class="notif-wrapper">
+    <button id="notifBtn" class="notif-pill">
+      🔔 <span id="notifBadge" class="notif-badge hidden"></span>
+    </button>
+    <!-- Dropdown code stays the same -->
+    <div id="notifDropdown" class="notif-dropdown hidden">
+        <div class="notif-header">
+          <span>System Activity</span>
+          <button id="clearNotifs">Clear</button>
+        </div>
+        <div id="notificationList">
+          <p id="noActivity">No recent activities...</p>
+        </div>
+    </div>
+  </div>
+
+  <!-- Guide Button with Toggle-able Text -->
+  <button id="guideBtn" class="guide-pill">
+    <span class="btn-icon">❓</span>
+    <span class="btn-label">Guide</span>
+  </button>
+
+  <!-- Logout Button with Toggle-able Text -->
+  <button id="logout-btn" class="logout-pill">
+    <span class="btn-icon">🚪</span>
+    <span class="btn-label">Log Out</span>
+  </button>
 </div>
   </nav>
 
+  <!-- ONBOARDING GUIDE MODAL -->
+  <div id="guideModal" class="guide-overlay hidden">
+    <div class="guide-modal">
+
+      <!-- Header -->
+      <div class="guide-header">
+        <span class="guide-logo">🌱 AutoGrow Guide</span>
+        <button id="guideCloseBtn" class="guide-close-btn">✕</button>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="guide-progress-bar-bg">
+        <div id="guideProgressBar" class="guide-progress-bar-fill"></div>
+      </div>
+      <div class="guide-step-label"><span id="guideStepLabel">Step 1 of 5</span></div>
+
+      <!-- Step Content -->
+      <div class="guide-body">
+
+        <!-- STEP 1 -->
+        <div class="guide-step active" data-step="1">
+          <div class="guide-step-icon">👋</div>
+          <h2>Welcome to AutoGrow!</h2>
+          <p>This quick guide will walk you through how to use the system. You can reopen this anytime by clicking the <strong>? Guide</strong> button in the top navigation bar.</p>
+          <p>First, check your <strong>sensor cards on the Dashboard</strong>. Make sure all readings are showing real values, not 0. If everything reads 0, the hardware may be offline or still booting up.</p>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="guide-step" data-step="2">
+          <div class="guide-step-icon">🎨</div>
+          <h2>Understanding the Dashboard</h2>
+          <div class="guide-explainer-row">
+            <span class="guide-badge green">🟢 Green</span>
+            <span>Readings are within the healthy range. Everything is good.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge yellow">🟡 Yellow</span>
+            <span>Getting close to the edge. Keep an eye on it — it may need attention soon.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge red">🔴 Red</span>
+            <span>Critical — the reading is outside the safe range and needs attention now.</span>
+          </div>
+          <div class="guide-explainer-row" style="margin-top: 14px;">
+            <span class="guide-badge blue">🟢 Connected to Database</span>
+            <span>The web app is successfully communicating with Firebase. If this turns red, check your internet connection.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge gray">⏱️ Hardware: Last seen</span>
+            <span>The last time the ESP32 sent sensor data. If it says <strong>OFFLINE</strong>, the device may be unplugged or has lost WiFi.</span>
+          </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="guide-step" data-step="3">
+          <div class="guide-step-icon">🔧</div>
+          <h2>Test Your Actuators</h2>
+          <p>Before running Auto mode, confirm the hardware is responding by testing in <strong>Manual mode</strong>.</p>
+          <div class="guide-explainer-row">
+            <span class="guide-badge gray">💨 Vent Fan</span>
+            <span>Toggle it ON and check if the fan physically turns on. The Live status below the button should turn 🟢.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge gray">💧 Water Pump</span>
+            <span>Check the zones you want to open, then toggle the pump. Water should flow through the selected zone valves only.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge gray">🌿 Grow Lights</span>
+            <span>Toggle it ON and confirm the grow light physically lights up.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge gray">🌫️ Mist Maker</span>
+            <span>Toggle it ON and confirm the mist maker starts producing mist.</span>
+          </div>
+        </div>
+
+        <!-- STEP 4 -->
+        <div class="guide-step" data-step="4">
+          <div class="guide-step-icon">⚙️</div>
+          <h2>Configure Your Crop</h2>
+          <p>Head to the <strong>Setup page</strong> using the top navigation.</p>
+          <ol class="guide-ol">
+            <li>Pick your crop from the dropdown (Tomato, Lettuce, or Kangkong).</li>
+            <li>Click <strong>Load Defaults</strong> to fill in the recommended settings for that crop.</li>
+            <li>Review and adjust the thresholds if needed.</li>
+            <li>Set your <strong>watering schedule</strong> — the times the system will check and water automatically.</li>
+            <li>Click <strong>Save Custom Settings</strong> to confirm.</li>
+          </ol>
+        </div>
+
+        <!-- STEP 5 -->
+        <div class="guide-step" data-step="5">
+          <div class="guide-step-icon">🚀</div>
+          <h2>Start Growing!</h2>
+          <p>You're almost ready. Before starting, complete the <strong>Pre-Grow Checklist</strong> on the Setup page:</p>
+          <div class="guide-explainer-row">
+            <span class="guide-badge green">✅ Seeds placed</span>
+            <span>Seeds or seedlings are in the greenhouse.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge green">✅ Soil prepared</span>
+            <span>Soil is ready in all 3 zones.</span>
+          </div>
+          <div class="guide-explainer-row">
+            <span class="guide-badge green">✅ Water tank filled</span>
+            <span>The water reservoir is filled and ready.</span>
+          </div>
+          <p style="margin-top: 14px;">Once all boxes are ticked, click <strong>Start Growing</strong>. The system will automatically switch to <strong>Auto mode</strong> and manage watering, lighting, ventilation, and humidity for you.</p>
+        </div>
+
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="guide-footer">
+        <button id="guidePrevBtn" class="guide-prev-btn" style="visibility: hidden;">← Back</button>
+        <button id="guideNextBtn" class="guide-next-btn">Next →</button>
+      </div>
+
+    </div>
+  </div>
   
   <main class="container">
     
     <section id="dashboardPage" class="page-section">
       <header class="page-header">
         <h1 id="activeCropTitle">No Active Crop</h1>
-        <p id="activeCropSub">Go to Setup to start a new grow cycle.</p>
+        <!-- <p id="activeCropSub">Go to Setup to start a new grow cycle.</p> -->
         <button id="cropButton" class="outline-btn">Quick Setup</button>
         
       </header>
@@ -78,6 +226,22 @@
             <div style="flex: 1; min-width: 120px;">
               <button id="pumpBtn" class="big-action-btn off" style="width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 6px;">Water Pump: OFF</button>
               <div id="statusPump" style="margin-top: 8px; font-size: 0.8rem; color: #888;">Live: 🔴 OFF</div>
+              <!-- Zone Checkboxes -->
+              <div id="zoneSelector" style="margin-top: 10px; background: #f8f9fa; border-radius: 6px; padding: 8px; border: 1px solid #e0e0e0;">
+                <div style="font-size: 0.75rem; font-weight: 600; color: #636e72; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Open Valves</div>
+                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.85rem; cursor: pointer;">
+                  <input type="checkbox" id="zoneCheck1" checked style="transform: scale(1.2);"> Zone 1
+                  <span id="statusSolenoid1" style="margin-left: auto; font-size: 0.75rem; color: #888;">🔴 OFF</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.85rem; cursor: pointer;">
+                  <input type="checkbox" id="zoneCheck2" checked style="transform: scale(1.2);"> Zone 2
+                  <span id="statusSolenoid2" style="margin-left: auto; font-size: 0.75rem; color: #888;">🔴 OFF</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; cursor: pointer;">
+                  <input type="checkbox" id="zoneCheck3" checked style="transform: scale(1.2);"> Zone 3
+                  <span id="statusSolenoid3" style="margin-left: auto; font-size: 0.75rem; color: #888;">🔴 OFF</span>
+                </label>
+              </div>
             </div>
             
             <div style="flex: 1; min-width: 120px;">
@@ -89,6 +253,12 @@
               <button id="lightBtn" class="big-action-btn off" style="width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 6px;">Grow Lights: OFF</button>
               <div id="statusLight" style="margin-top: 8px; font-size: 0.8rem; color: #888;">Live: 🔴 OFF</div>
             </div>
+
+            <!-- NEW: Mist Maker Button -->
+            <div style="flex: 1; min-width: 120px;">
+              <button id="mistBtn" class="big-action-btn off" style="width: 100%; padding: 10px; font-size: 0.95rem; border-radius: 6px;">Mist Maker: OFF</button>
+              <div id="statusMist" style="margin-top: 8px; font-size: 0.8rem; color: #888;">Live: 🔴 OFF</div>
+            </div>
           </div>
         </div>
       </div>
@@ -97,55 +267,172 @@
         <div id="climateCard" class="sensor-card">
           <h3>🌡️ Climate</h3>
           <div class="sensor-row">
-            <span>Temperature <span id="targetTemp" class="target-label"></span></span>
+            <span>
+              Temperature <span id="targetTemp" class="target-label"></span>
+              <span class="info-icon" id="tipTemp">ℹ️
+                <span class="tooltip-box" id="tipTempBox">
+                  <strong>Temperature</strong><br>
+                  Monitors how hot or cold the greenhouse is.<br>
+                  <span id="tipTempThreshold"></span>
+                  In Manual mode, toggle the <strong>Vent Fan</strong> yourself if it gets too hot.
+                </span>
+              </span>
+            </span>
             <span id="tempDisplay" class="sensor-value">0.0 °C</span>
           </div>
           <div class="sensor-row">
-            <span>Humidity <span id="targetHumidity" class="target-label"></span></span>
+            <span>
+              Humidity <span id="targetHumidity" class="target-label"></span>
+              <span class="info-icon" id="tipHumid">ℹ️
+                <span class="tooltip-box" id="tipHumidBox">
+                  <strong>Humidity</strong><br>
+                  Monitors moisture in the air around your plants.<br>
+                  <span id="tipHumidThreshold"></span>
+                  In Manual mode, toggle the <strong>Mist Maker</strong> yourself if air gets too dry.
+                </span>
+              </span>
+            </span>
             <span id="humidityDisplay" class="sensor-value">0.0 %</span>
           </div>
         </div>
 
-        <div id="soilCard" class="sensor-card">
-          <h3>💧 Soil Moisture</h3>
-          <div class="sensor-row">
-            <span>Zone Targets: <span id="targetSoil" class="target-label"></span></span>
-          </div>
-          <div class="sensor-row">
-            <span>Zone 1</span>
-            <span id="soilDisplay1" class="sensor-value">0 %</span>
-          </div>
-          <div class="sensor-row">
-            <span>Zone 2</span>
-            <span id="soilDisplay2" class="sensor-value">0 %</span>
-          </div>
-          <div class="sensor-row">
-            <span>Zone 3</span>
-            <span id="soilDisplay3" class="sensor-value">0 %</span>
-          </div>
+              <!-- Zone 1: Kangkong -->
+      <div id="soilCard1" class="sensor-card">
+        <div class="card-header-flex">
+          <h3>💧 Kangkong <small>(Zone 1)</small></h3>
+          <span id="badge-kangkong" class="active-crop-badge hidden">SET UP</span>
         </div>
+        <div class="sensor-row">
+          <span>Optimal Range: <span id="targetSoil" class="target-label"></span></span>
+        </div>
+        <div class="sensor-row">
+          <span>
+            Moisture
+            <span class="info-icon">ℹ️
+              <span class="tooltip-box">
+                <strong>Kangkong (Zone 1)</strong><br>
+                <span id="tipSoil1Threshold"></span>
+                In Manual mode, toggle the <strong>Water Pump</strong> and ensure Zone 1 is checked.
+              </span>
+            </span>
+          </span>
+          <span id="soilDisplay1" class="sensor-value">0 %</span>
+        </div>
+      </div>
+
+      <!-- Zone 2: Lettuce -->
+      <div id="soilCard2" class="sensor-card">
+        <div class="card-header-flex">
+          <h3>💧 Lettuce <small>(Zone 2)</small></h3>
+          <span id="badge-lettuce" class="active-crop-badge hidden">SET UP</span>
+        </div>
+        <div class="sensor-row">
+          <span>Optimal Range: <span id="targetSoil2" class="target-label"></span></span>
+        </div>
+        <div class="sensor-row">
+          <span>
+            Moisture
+            <span class="info-icon">ℹ️
+              <span class="tooltip-box">
+                <strong>Lettuce (Zone 2)</strong><br>
+                <span id="tipSoil2Threshold"></span>
+                In Manual mode, toggle the <strong>Water Pump</strong> and ensure Zone 2 is checked.
+              </span>
+            </span>
+          </span>
+          <span id="soilDisplay2" class="sensor-value">0 %</span>
+        </div>
+      </div>
+
+      <!-- Zone 3: Tomato -->
+      <div id="soilCard3" class="sensor-card">
+        <div class="card-header-flex">
+          <h3>💧 Tomato <small>(Zone 3)</small></h3>
+          <span id="badge-tomato" class="active-crop-badge hidden">SET UP</span>
+        </div>
+        <div class="sensor-row">
+          <span>Optimal Range: <span id="targetSoil3" class="target-label"></span></span>
+        </div>
+        <div class="sensor-row">
+          <span>
+            Moisture
+            <span class="info-icon">ℹ️
+              <span class="tooltip-box">
+                <strong>Tomato (Zone 3)</strong><br>
+                <span id="tipSoil3Threshold"></span>
+                In Manual mode, toggle the <strong>Water Pump</strong> and ensure Zone 3 is checked.
+              </span>
+            </span>
+          </span>
+          <span id="soilDisplay3" class="sensor-value">0 %</span>
+        </div>
+      </div>
 
         <div class="sensor-card">
           <h3>☀️ Light & Soil Health</h3>
           <div class="sensor-row">
-            <span>Lux <span id="targetLight" class="target-label"></span></span>
+            <span>
+              Lux <span id="targetLight" class="target-label"></span>
+              <span class="info-icon">ℹ️
+                <span class="tooltip-box">
+                  <strong>Light Level (Lux)</strong><br>
+                  Measures how much light your plants are receiving right now.<br>
+                  <span id="tipLuxThreshold"></span>
+                  In Manual mode, toggle <strong>Grow Lights</strong> if it's too dark.
+                </span>
+              </span>
+            </span>
             <span id="lightDisplay" class="sensor-value">0 </span>
           </div>
           <div class="sensor-row">
-            <span>Nitrogen (N)</span>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">Condition</span>
+            <span id="lightCategoryBadge" style="font-size: 0.82rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; background: #eee; color: #888;">—</span>
+          </div>
+          <div class="sensor-row">
+            <span>
+              Nitrogen (N)
+              <span class="info-icon">ℹ️
+                <span class="tooltip-box">
+                  <strong>Nitrogen (N)</strong><br>
+                  Essential for leaf and stem growth. Low nitrogen causes yellowing leaves. Consider adding nitrogen-rich fertilizer if values are consistently low.
+                </span>
+              </span>
+            </span>
             <span id="nitrogenDisplay" class="sensor-value">N/A</span>
           </div>
+          <div id="nitrogenIdeal" style="font-size: 0.8rem; color: #888; margin-bottom: 8px; margin-top: -8px;"></div>
+
           <div class="sensor-row">
-            <span>Phosphorus (P)</span>
+
+            <span>
+              Phosphorus (P)
+              <span class="info-icon">ℹ️
+                <span class="tooltip-box">
+                  <strong>Phosphorus (P)</strong><br>
+                  Supports root development and flowering. Low phosphorus can slow plant growth. Add phosphorus-rich fertilizer if needed.
+                </span>
+              </span>
+            </span>
             <span id="phosphorusDisplay" class="sensor-value">N/A</span>
           </div>
+          <div id="phosphorusIdeal" style="font-size: 0.8rem; color: #888; margin-bottom: 8px; margin-top: -8px;"></div>
+
           <div class="sensor-row">
-            <span>Potassium (K)</span>
+            <span>
+              Potassium (K)
+              <span class="info-icon">ℹ️
+                <span class="tooltip-box">
+                  <strong>Potassium (K)</strong><br>
+                  Helps overall plant health and disease resistance. Low potassium can cause weak stems and poor fruit quality.
+                </span>
+              </span>
+            </span>
             <span id="potassiumDisplay" class="sensor-value">N/A</span>
           </div>
+          <div id="potassiumIdeal" style="font-size: 0.8rem; color: #888; margin-bottom: 8px; margin-top: -8px;"></div>
         </div>
 
-        <div class="tracking-panel" style="margin-top: 20px;">
+        
         <div class="sensor-card">
           <h3>📊 Today's System Usage</h3>
           <div class="sensor-row">
@@ -164,7 +451,7 @@
             <span id="sunlightHoursDisplay" class="sensor-value">0 hrs 0 mins</span>
           </div>
         </div>
-      </div>
+      
 
       <div class="sensor-card" style="margin-top: 20px; width: 100%;">
         <h3>💧 Watering Schedule</h3>
@@ -200,7 +487,7 @@
           <h3>2. Environment Thresholds</h3>
           
           <div class="input-group">
-            <label>Target Temp (°C)</label>
+            <label>Trigger Temp (°C)</label>
             <input id="draftTargetTemp" type="number" step="0.1" class="styled-input" />
           </div>
           

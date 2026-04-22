@@ -160,9 +160,71 @@ body {
   100% { opacity: 1; }
 }
 
-/* ========================================= */
-/* TOAST NOTIFICATION STYLES           */
-/* ========================================= */
+/* ==========================================
+   MOBILE RESPONSIVE (max-width: 768px)
+   ========================================== */
+@media (max-width: 768px) {
+  .topnav {
+    padding: 8px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .nav-brand {
+    font-size: 1.2rem;
+    flex-basis: 100%;
+    margin-bottom: 4px;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 8px;
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .nav-links a {
+    margin-left: 0;
+    font-size: 0.85rem;
+    padding: 6px 10px;
+    flex: 1;
+    text-align: center;
+  }
+
+  .nav-status {
+    order: 2;
+    gap: 6px;
+    padding: 4px 8px;
+    flex-basis: 100%;
+  }
+
+  .status-info {
+    display: none; /* Hide status text on mobile, keep dot */
+  }
+
+  #status-dot {
+    font-size: 12px;
+  }
+
+  .guide-pill,
+  .logout-pill {
+    padding: 3px 8px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+  }
+
+  .guide-pill {
+    order: 1;
+  }
+
+  .logout-pill {
+    order: 2;
+  }
+}
+
+/* =========================================
+   TOAST NOTIFICATION STYLES
+   ========================================== */
 .toast-notification {
   position: fixed;
   top: 20px;            /* Where it sits when visible */
@@ -259,6 +321,46 @@ body {
   gap: 20px;
 }
 
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--bg-color);
+  margin-bottom: 12px;
+}
+.card-header-flex h3 { border-bottom: none !important; margin: 0 !important; }
+
+.active-crop-badge {
+  background-color: var(--primary-green);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 1px;
+}
+
+.card-active-focus {
+  border: 2px solid var(--primary-green) !important;
+  box-shadow: 0 0 15px rgba(16, 172, 132, 0.4) !important;
+  transform: scale(1.02);
+}
+
+.sensor-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Force 3 columns on large screens */
+@media (min-width: 900px) {
+  .card-grid {
+    grid-template-columns: repeat(3, 1fr);
+    display: grid;
+    gap: 20px;
+  }
+}
+
 .sensor-card, .setup-card, .control-card {
   background: var(--card-bg);
   padding: 25px;
@@ -291,6 +393,33 @@ body {
 }
 
 .sensor-row:last-child {
+  border-bottom: none;
+}
+
+/* Removes the bottom border from the sensor row so they connect */
+.sensor-row.has-ideal {
+  border-bottom: none;
+  padding-bottom: 4px; 
+}
+.npk-ideal-label {
+  font-size: 0.72rem;
+  color: #888;
+  margin-top: -10px;
+  margin-bottom: 10px;
+  min-height: 15px; /* Keeps card heights consistent */
+}
+
+/* Styles the ideal text underneath */
+.npk-ideal-row {
+  display: block;
+  font-size: 0.85rem;
+  color: #888; /* gray text */
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f4f8; /* Matches your sensor-row border */
+}
+
+/* Ensure the last one doesn't have an extra border */
+.npk-ideal-row:last-child {
   border-bottom: none;
 }
 
@@ -544,3 +673,335 @@ button:disabled {
     padding-bottom: 5px;
   }
 }
+/* ==========================================
+   TOOLTIP / INFO ICON STYLES
+   ========================================== */
+.info-icon {
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  font-size: 0.75rem;
+  margin-left: 4px;
+  vertical-align: middle;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  user-select: none;
+}
+
+.info-icon .tooltip-box {
+  width: 200px;
+  bottom: 125%;
+}
+
+.info-icon:hover {
+  opacity: 1;
+}
+
+.tooltip-box {
+  visibility: hidden;
+  opacity: 0;
+  width: 240px;
+  background-color: #2d3436;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: normal;
+  line-height: 1.5;
+  padding: 12px 14px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+  position: absolute;
+  z-index: 999;
+  bottom: 130%;
+  left: 50%;
+  transform: translateX(-50%);
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  pointer-events: none;
+}
+
+/* Arrow pointing down */
+.tooltip-box::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #2d3436 transparent transparent transparent;
+}
+
+.info-icon:hover .tooltip-box {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ==========================================
+   GUIDE BUTTON IN NAVBAR
+   ========================================== */
+.guide-pill {
+  background-color: #eaf4fb;
+  color: #2980b9;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  border-radius: 20px;
+  border: 1px solid #aed6f1;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.2s;
+  margin-left: 5px;
+}
+.guide-pill:hover {
+  background-color: #2980b9;
+  color: white;
+  border-color: #2980b9;
+}
+
+/* ==========================================
+   GUIDE MODAL OVERLAY
+   ========================================== */
+.guide-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.2s ease;
+}
+.guide-overlay.hidden {
+  display: none !important;
+}
+
+.guide-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 520px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.guide-logo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--dark-green);
+}
+.guide-close-btn {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #aaa;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.guide-close-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+/* Progress bar */
+.guide-progress-bar-bg {
+  height: 4px;
+  background: #eee;
+}
+.guide-progress-bar-fill {
+  height: 100%;
+  background: var(--primary-green);
+  transition: width 0.35s ease;
+}
+.guide-step-label {
+  text-align: right;
+  font-size: 0.75rem;
+  color: #aaa;
+  padding: 4px 20px 0;
+}
+
+/* Body */
+.guide-body {
+  padding: 20px 24px;
+  min-height: 280px;
+  overflow-y: auto;
+}
+.guide-step {
+  display: none;
+  animation: fadeIn 0.2s ease;
+}
+.guide-step.active {
+  display: block;
+}
+.guide-step-icon {
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+}
+.guide-step h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 10px;
+}
+.guide-step p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+
+/* Explainer rows */
+.guide-explainer-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+.guide-badge {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.guide-badge.green  { background: #d5f5e3; color: #1e8449; }
+.guide-badge.yellow { background: #fef9e7; color: #b7950b; }
+.guide-badge.red    { background: #fdecea; color: #c0392b; }
+.guide-badge.blue   { background: #eaf4fb; color: #1a5276; }
+.guide-badge.gray   { background: #f4f6f7; color: #555;    }
+
+/* Ordered list */
+.guide-ol {
+  padding-left: 20px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 2;
+}
+.guide-ol li { margin-bottom: 2px; }
+
+/* Footer */
+.guide-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  border-top: 1px solid #f0f0f0;
+}
+.guide-prev-btn {
+  background: none;
+  border: 2px solid var(--border-light);
+  color: var(--text-muted);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+.guide-prev-btn:hover { background: #f4f6f7; color: var(--text-main); }
+.guide-next-btn {
+  background: var(--primary-green);
+  color: white;
+  border: none;
+  padding: 8px 22px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: background 0.2s;
+}
+.guide-next-btn:hover { background: var(--dark-green); }
+
+/* Notif Wrapper for Positioning */
+.notif-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.notif-pill {
+  background-color: #f8f9fa;
+  border: 1px solid var(--border-light);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.notif-pill:hover { background-color: #eee; }
+
+/* The Red Dot Badge */
+.notif-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  background-color: #e74c3c;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+/* The Dropdown Panel */
+.notif-dropdown {
+  position: absolute;
+  top: 40px;
+  right: 0;
+  width: 300px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  border: 1px solid var(--border-light);
+  z-index: 1000;
+  overflow: hidden;
+}
+
+.notif-header {
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+#clearNotifs {
+  background: none;
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+  padding: 2px 5px;
+}
+
+/* The Scrollable List */
+#notificationList {
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.log-entry-item {
+  padding: 10px 15px;
+  border-bottom: 1px solid #f8f9fa;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+
+.log-time { color: #95a5a6; font-family: monospace; white-space: nowrap; }
+.log-msg { flex-grow: 1; color: #2c3e50; line-height: 1.3; }
+.log-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+
+#noActivity { text-align: center; color: #888; padding: 20px; font-style: italic; font-size: 0.8rem; }

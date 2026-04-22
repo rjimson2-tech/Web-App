@@ -59,6 +59,7 @@ if (logoutBtn) {
       console.log("Logged out successfully!");
       emailInput.value = "";
       passwordInput.value = "";
+      window.location.reload(); // Refresh the page to reset everything
     }).catch((error) => {
       console.error("Logout error:", error);
     });
@@ -76,11 +77,19 @@ const nitrogenRef = database.ref("sensors/nitrogen");
 const phosphorusRef = database.ref("sensors/phosphorus");
 const potassiumRef = database.ref("sensors/potassium");
 
+
+
 // CONTROLS COMMAND REFERENCES
 const fanCmdRef = database.ref("commands/vent_fan/enabled");
 const pumpCmdRef = database.ref("commands/water_pump/enabled");
 const lightCmdRef = database.ref("commands/grow_light/enabled");
+const mistCmdRef = database.ref("commands/mist_maker/enabled");
 const modeRef = database.ref("mode");
+
+// SOLENOID ZONE REFERENCES
+const solenoidZone1Ref = database.ref("commands/solenoid/zone1");
+const solenoidZone2Ref = database.ref("commands/solenoid/zone2");
+const solenoidZone3Ref = database.ref("commands/solenoid/zone3");
 
 // CONFIG DRAFT REFERENCES
 const selectedCropRef = database.ref("/selected_crop");
@@ -93,25 +102,8 @@ const growRef = database.ref("/grow");
 const statusDot = document.getElementById('status-dot');
 const statusText = document.getElementById('status-text');
 
-// Listen to the hidden Firebase connection path
-const connectedRef = firebase.database().ref('.info/connected');
-
-connectedRef.on('value', (snap) => {
-  if (snap.val() === true) {
-    // We have internet!
-    statusDot.textContent = '🟢';
-    statusText.textContent = 'Connected to Database';
-    statusText.style.color = 'green';
-  } else {
-    // We lost internet!
-    statusDot.textContent = '🔴';
-    statusText.textContent = 'Disconnected (Check Wi-Fi)';
-    statusText.style.color = 'red';
-  }
-});
-
-let lastHeartbeat = Date.now();
-let isSyncing = { pump: false, fan: false, light: false };
+let lastHeartbeat = 0;
+let isSyncing = { pump: false, fan: false, light: false, mist: false };
 
 // Grab the HTML element from your new sensor card
 const nextWateringDisplay = document.getElementById('next-watering-display');
@@ -158,14 +150,37 @@ scheduleRef.on('value', (snapshot) => {
     nextTime = { hour: validTimes[0].hour, min: validTimes[0].min, day: "Tomorrow" };
   }
 
-  // Format the numbers so they look like a digital clock (e.g., 08:05 instead of 8:5)
-  if (nextTime) {
-    const formattedHour = String(nextTime.hour).padStart(2, '0');
-    const formattedMin = String(nextTime.min).padStart(2, '0');
-    nextWateringDisplay.textContent = `${nextTime.day} at ${formattedHour}:${formattedMin}`;
-  } else {
-    nextWateringDisplay.textContent = "Error reading schedule";
-  }
+  // Fetch today's watering log to show status per schedule
+  const todayKeyWL = new Date().getFullYear() + '-' +
+    String(new Date().getMonth() + 1).padStart(2, '0') + '-' +
+    String(new Date().getDate()).padStart(2, '0');
+  firebase.database().ref('tracking/daily/' + todayKeyWL + '/watering_log').once('value', logSnap => {
+    const wateringLog = logSnap.val() || {};
+    let rowsHTML = '';
+    validTimes.forEach(t => {
+      let h = t.hour;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      const m = String(t.min).padStart(2, '0');
+      const label = h + ':' + m + ' ' + ampm;
+      const logKey = String(t.hour).padStart(2,'0') + ':' + String(t.min).padStart(2,'0');
+      const logStatus = wateringLog[logKey];
+      let statusBadge = '';
+      if (logStatus === 'Watered') {
+        statusBadge = '<span style="color:#3498db;font-weight:bold;margin-left:8px;">💧 Watered</span>';
+      } else if (logStatus === 'Skipped') {
+        statusBadge = '<span style="color:#e74c3c;font-weight:bold;margin-left:8px;">⏭️ Skipped</span>';
+      } else if (logStatus === 'Manual') {
+        statusBadge = '<span style="color:#f39c12;font-weight:bold;margin-left:8px;">👋 Manual</span>';
+      } else {
+        statusBadge = '<span style="color:#aaa;margin-left:8px;">⏳ Pending</span>';
+      }
+      rowsHTML += '<div style="padding:6px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;">'
+        + '<span style="font-weight:600;min-width:90px;">' + label + '</span>'
+        + statusBadge + '</div>';
+    });
+    nextWateringDisplay.innerHTML = rowsHTML || 'No schedule set';
+  });
 });
 
 //HELPER FUNCTIONS
@@ -242,78 +257,110 @@ document.addEventListener('DOMContentLoaded', () => {
   //====================== //
   // SENSOR DATA UPDATES   //
   // ======================//
-  // 1. Create a "memory" to hold the latest values for all 3 soil sensors
-let latestSoilValues = {
-  zone1: 0,
-  zone2: 0,
-  zone3: 0
-};
-
-// 2. Create a function to calculate the average and update the card color
-function refreshSoilHealthUI() {
-  const avg = (latestSoilValues.zone1 + latestSoilValues.zone2 + latestSoilValues.zone3) / 3;
-  
-  // Update the Soil Card color based on the average
-  // (Healthy range: 40% to 85% - adjust these numbers as needed)
-  updateHealthStatus("soilCard", avg, 60, 85);
-  
-  // Optional: If you have a place to show the average number, you can update it here
-  console.log("Current Soil Average:", avg.toFixed(1) + "%");
-}
 
   // Temperature
-    tempRef.on("value", snap => {
+  tempRef.on("value", snap => {
+    lastHeartbeat = Date.now();
     const val = safeNumber(snap.val());
     const el = document.getElementById("tempDisplay");
-    if (el) el.innerText = val.toFixed(1) + " °C";
-
+    if (el) el.innerText = val.toFixed(1) + " \xb0C";
     updateHealthStatus("climateCard", val, 18, 32);
-    lastHeartbeat = Date.now(); // Update heartbeat on every new temperature reading
+    
   });
+
   // Humidity
-    humidityRef.on("value", snap => {
+  humidityRef.on("value", snap => {
+    lastHeartbeat = Date.now();
     const el = document.getElementById("humidityDisplay");
     if (el) el.innerText = safeNumber(snap.val()).toFixed(1) + " %";
   });
 
-  // Soil 1
-  soil1Ref.on("value", snap => {
-    const val = Math.round(safeNumber(snap.val()));
-    const el = document.getElementById("soilDisplay1");
-    if (el) el.innerText = val + " %";
-    
-    latestSoilValues.zone1 = val; // Store the value
-    refreshSoilHealthUI();        // Recalculate average and update color
-  });
 
-  // Soil 2
-  soil2Ref.on("value", snap => {
-    const val = Math.round(safeNumber(snap.val()));
-    const el = document.getElementById("soilDisplay2");
-    if (el) el.innerText = val + " %";
-    
-    latestSoilValues.zone2 = val; // Store the value
-    refreshSoilHealthUI();        // Recalculate average and update color
-  });
+  const cropOptimalRanges = {
+    tomato:  { tempMin: 21, tempMax: 24, humidMin: 65, humidMax: 85, soilMin: 60, soilMax: 80 },
+    lettuce: { tempMin: 15, tempMax: 25, humidMin: 60, humidMax: 80, soilMin: 60, soilMax: 80 },
+    spinach: { tempMin: 25, tempMax: 30, humidMin: 70, humidMax: 90, soilMin: 75, soilMax: 100 } // kangkong
+};
 
-  // Soil 3
-  soil3Ref.on("value", snap => {
-    const val = Math.round(safeNumber(snap.val()));
-    const el = document.getElementById("soilDisplay3");
-    if (el) el.innerText = val + " %";
-    
-    latestSoilValues.zone3 = val; // Store the value
-    refreshSoilHealthUI();        // Recalculate average and update color
-  });
+// 2. The health function
+function refreshZoneHealth(cardId, value, cropKey) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  const ranges = cropOptimalRanges[cropKey];
+  
+  // If no range found, just keep it neutral
+  if (!ranges) {
+    card.classList.remove('status-good', 'status-warning', 'status-danger');
+    return;
+  }
+
+  card.classList.remove('status-good', 'status-warning', 'status-danger');
+
+  // Soil logic based on the specific crop's soilMin
+  if (value < (ranges.soilMin - 10)) {
+    card.classList.add('status-danger');   // Red
+  } else if (value < ranges.soilMin) {
+    card.classList.add('status-warning');  // Yellow
+  } else {
+    card.classList.add('status-good');     // Green
+  }
+}
+
+// 2. UPDATED: Soil Listeners passing specific crop keys
+// Zone 1: Kangkong (Key: 'spinach')
+soil1Ref.on("value", snap => {
+  lastHeartbeat = Date.now();
+  const val = Math.round(safeNumber(snap.val()));
+  const el = document.getElementById("soilDisplay1");
+  if (el) el.innerText = val + " %";
+  refreshZoneHealth("soilCard1", val, "spinach"); 
+});
+
+// Zone 2: Lettuce (Key: 'lettuce')
+soil2Ref.on("value", snap => {
+  lastHeartbeat = Date.now();
+  const val = Math.round(safeNumber(snap.val()));
+  const el = document.getElementById("soilDisplay2");
+  if (el) el.innerText = val + " %";
+  refreshZoneHealth("soilCard2", val, "lettuce");
+});
+
+// Zone 3: Tomato (Key: 'tomato')
+soil3Ref.on("value", snap => {
+  lastHeartbeat = Date.now();
+  const val = Math.round(safeNumber(snap.val()));
+  const el = document.getElementById("soilDisplay3");
+  if (el) el.innerText = val + " %";
+  refreshZoneHealth("soilCard3", val, "tomato");
+});
+
   // Light
-    lightRef.on("value", snap => {
+  lightRef.on("value", snap => {
+    lastHeartbeat = Date.now();
     const el = document.getElementById("lightDisplay");
-    if (el) {
-      // Get the value, round it, and format it with commas
-      const luxValue = Math.round(safeNumber(snap.val()));
-      el.innerText = luxValue.toLocaleString() + " Lux"; 
+    const badge = document.getElementById("lightCategoryBadge");
+    const luxValue = Math.round(safeNumber(snap.val()));
+
+    if (el) el.innerText = luxValue.toLocaleString() + " Lux";
+
+    // Update live category badge
+    if (badge) {
+      let label, bg, color;
+      if (luxValue <= 100) {
+        label = "🌑 Dark";          bg = "#2d3436"; color = "#ffffff";
+      } else if (luxValue <= 2000) {
+        label = "🌥️ Low Light";    bg = "#dfe6e9"; color = "#636e72";
+      } else if (luxValue <= 10000) {
+        label = "⛅ Medium Light";  bg = "#ffeaa7"; color = "#856404";
+      } else {
+        label = "☀️ High Light";   bg = "#fdcb6e"; color = "#7d4e00";
+      }
+      badge.textContent = label;
+      badge.style.background = bg;
+      badge.style.color = color;
     }
-    });
+  });
   // Nitrogen
     nitrogenRef.on("value", snap => {
     const el = document.getElementById("nitrogenDisplay");
@@ -330,6 +377,125 @@ function refreshSoilHealthUI() {
     if (el) el.innerText = Math.round(safeNumber(snap.val())) + " mg/kg";
     });  
 
+  // Helper: Format NPK ideal range display based on crop
+  function updateNPKIdealRanges(crop) {
+    const npkData = cropNPKRanges[crop];
+    if (!npkData) {
+      document.getElementById("nitrogenIdeal").innerHTML = "";
+      document.getElementById("phosphorusIdeal").innerHTML = "";
+      document.getElementById("potassiumIdeal").innerHTML = "";
+      return;
+    }
+
+    // NITROGEN
+    let nText = "";
+    if (crop === "tomato") {
+      nText = `<strong>Ideal:</strong> 🌱 Veg ${npkData.nitrogen.veg} mg/kg | 🍅 Fruit ${npkData.nitrogen.fruit} mg/kg`;
+    } else {
+      nText = `<strong>Ideal:</strong> ${npkData.nitrogen.min}–${npkData.nitrogen.max} mg/kg`;
+      if (npkData.nitrogen.note) nText += ` (${npkData.nitrogen.note})`;
+    }
+    const nEl = document.getElementById("nitrogenIdeal");
+    if (nEl) nEl.innerHTML = nText;
+
+    // PHOSPHORUS
+    let pText = "";
+    if (crop === "tomato") {
+      const vegP = npkData.phosphorus.veg;
+      const fruitP = npkData.phosphorus.fruit;
+      const fruitPRange = typeof fruitP === "object" ? `${fruitP.min}–${fruitP.max}` : fruitP;
+      pText = `<strong>Ideal:</strong> 🌱 Veg ${vegP} mg/kg | 🍅 Fruit ${fruitPRange} mg/kg`;
+    } else {
+      pText = `<strong>Ideal:</strong> ${npkData.phosphorus.min}–${npkData.phosphorus.max} mg/kg`;
+    }
+    const pEl = document.getElementById("phosphorusIdeal");
+    if (pEl) pEl.innerHTML = pText;
+
+    // POTASSIUM
+    let kText = "";
+    if (crop === "tomato") {
+      const vegK = npkData.potassium.veg;
+      const fruitK = npkData.potassium.fruit;
+      const fruitKRange = typeof fruitK === "object" ? `${fruitK.min}–${fruitK.max}` : fruitK;
+      kText = `<strong>Ideal:</strong> 🌱 Veg ${vegK} mg/kg | 🍅 Fruit ${fruitKRange} mg/kg`;
+    } else {
+      kText = `<strong>Ideal:</strong> ${npkData.potassium.min}–${npkData.potassium.max} mg/kg`;
+      if (npkData.potassium.note) kText += ` (${npkData.potassium.note})`;
+    }
+    const kEl = document.getElementById("potassiumIdeal");
+    if (kEl) kEl.innerHTML = kText;
+  }
+
+// ==========================================
+  //      DASHBOARD GROW STATUS & NPK SYNC
+  // ==========================================
+  growRef.on("value", async (snap) => {
+    const growData = snap.val();
+    
+    // 1. SELECTORS FOR NPK (Needed for both cases)
+    const nIdeal = document.getElementById("nitrogenIdeal");
+    const pIdeal = document.getElementById("phosphorusIdeal");
+    const kIdeal = document.getElementById("potassiumIdeal");
+
+    if (growData && growData.active) {
+      // --- CASE A: SYSTEM IS GROWING ---
+      
+      // Get the crop name
+      const cropSnap = await selectedCropRef.get();
+      const cropName = cropSnap.val() || "Unknown Crop";
+      
+      // Update Title and Progress Row
+      if (activeCropTitle) activeCropTitle.textContent = "Currently Growing: " + cropName.toUpperCase();
+      if (progressCrop) progressCrop.textContent = cropName.toUpperCase();
+
+      // Update NPK Ideal Ranges
+      updateNPKIdealRanges(cropName);
+
+      // Change button to Red "View Setup"
+      if (cropButton) {
+        cropButton.textContent = "View Setup";
+        cropButton.style.backgroundColor = "var(--danger)"; 
+        cropButton.style.color = "white";
+        cropButton.style.borderColor = "var(--danger)";
+      }
+
+      // Calculate Progress Bar
+      const startMs = growData.start_ts || Date.now();
+      const durationDays = growData.duration_days || 30;
+      const elapsedMs = Math.max(0, Date.now() - startMs);
+      const elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+      const percent = Math.min(Math.round((elapsedDays / durationDays) * 100), 100);
+      
+      if (progressDay) progressDay.textContent = `Day ${elapsedDays} of ${durationDays}`;
+      if (growProgressBar) growProgressBar.style.width = percent + "%";
+
+    } else {
+      // --- CASE B: SYSTEM IS STOPPED ---
+      
+      // Reset Titles and Progress
+      if (activeCropTitle) activeCropTitle.textContent = "No Active Crop";
+      if (progressCrop) progressCrop.textContent = "-";
+      if (progressDay) progressDay.textContent = "-";
+      if (growProgressBar) growProgressBar.style.width = "0%";
+
+      // Clear NPK Ideal Ranges
+      if (nIdeal) nIdeal.innerHTML = "";
+      if (pIdeal) pIdeal.innerHTML = "";
+      if (kIdeal) kIdeal.innerHTML = "";
+
+      // Reset button back to original "Quick Setup" style
+      if (cropButton) {
+        cropButton.textContent = "Quick Setup";
+        cropButton.style.backgroundColor = ""; 
+        cropButton.style.color = "";           
+        cropButton.style.borderColor = "";     
+      }
+    }
+  });
+
+
+    
+
 // ===================================//
   //           MANUAL CONTROLS          //
   // ===================================//
@@ -342,11 +508,18 @@ function refreshSoilHealthUI() {
   const fanBtn = document.getElementById("fanBtn");
   const pumpBtn = document.getElementById("pumpBtn");
   const lightBtn = document.getElementById("lightBtn");
+  const mistBtn = document.getElementById("mistBtn");
+
+  // Zone checkboxes
+  const zoneCheck1 = document.getElementById("zoneCheck1");
+  const zoneCheck2 = document.getElementById("zoneCheck2");
+  const zoneCheck3 = document.getElementById("zoneCheck3");
 
   let currentMode = "manual"; // Default mode
   let fanState = false;
   let pumpState = false;
   let lightState = false;
+  let mistState = false;
 
     // --- 2. MODE SWITCH LOGIC ---
     // Listen for clicks on the new buttons
@@ -357,6 +530,10 @@ function refreshSoilHealthUI() {
         if (fanCmdRef) fanCmdRef.set(false);
         if (pumpCmdRef) pumpCmdRef.set(false);
         if (lightCmdRef) lightCmdRef.set(false);
+        if (mistCmdRef) mistCmdRef.set(false);
+        if (solenoidZone1Ref) solenoidZone1Ref.set(false);
+        if (solenoidZone2Ref) solenoidZone2Ref.set(false);
+        if (solenoidZone3Ref) solenoidZone3Ref.set(false);
       });
     }
 
@@ -435,6 +612,10 @@ function refreshSoilHealthUI() {
       lightState = !!snap.val();
       updateBtnUI(lightBtn, "Grow Light", lightState);
     });
+    mistCmdRef.on("value", snap => {
+      mistState = !!snap.val();
+      updateBtnUI(mistBtn, "Mist Maker", mistState);
+    });
 
     // Send commands to Firebase when buttons are clicked
     if (fanBtn) {
@@ -444,12 +625,31 @@ function refreshSoilHealthUI() {
     }
     if (pumpBtn) {
       pumpBtn.addEventListener("click", () => {
-        if (currentMode === "manual") pumpCmdRef.set(!pumpState);
+        if (currentMode === "manual") {
+          const turningOn = !pumpState;
+          // Write zone selections to Firebase before turning pump on
+          if (turningOn) {
+            solenoidZone1Ref.set(zoneCheck1 ? zoneCheck1.checked : true);
+            solenoidZone2Ref.set(zoneCheck2 ? zoneCheck2.checked : true);
+            solenoidZone3Ref.set(zoneCheck3 ? zoneCheck3.checked : true);
+          } else {
+            // Close all valves when turning off
+            solenoidZone1Ref.set(false);
+            solenoidZone2Ref.set(false);
+            solenoidZone3Ref.set(false);
+          }
+          pumpCmdRef.set(turningOn);
+        }
       });
     }
     if (lightBtn) {
       lightBtn.addEventListener("click", () => {
         if (currentMode === "manual") lightCmdRef.set(!lightState);
+      });
+    }
+    if (mistBtn) {
+      mistBtn.addEventListener("click", () => {
+        if (currentMode === "manual") mistCmdRef.set(!mistState);
       });
     }
 
@@ -464,25 +664,42 @@ function refreshSoilHealthUI() {
   const fanStateRef = database.ref("sensors/fan_state");
   const pumpStateRef = database.ref("sensors/pump_state");
   const lightStateRef = database.ref("sensors/light_state");
+  const mistStateRef = database.ref("sensors/mist_state");
+  const solenoid1StateRef = database.ref("sensors/solenoid1");
+  const solenoid2StateRef = database.ref("sensors/solenoid2");
+  const solenoid3StateRef = database.ref("sensors/solenoid3");
 
   // Helper function to update the little text below the buttons
   function updateSubStatus(element, isOn) {
     if (!element) return;
     if (isOn) {
       element.innerHTML = "Live: 🟢 ON";
-      element.style.color = "#2ecc71"; // Nice bright green
+      element.style.color = "#2ecc71";
       element.style.fontWeight = "bold";
     } else {
       element.innerHTML = "Live: 🔴 OFF";
-      element.style.color = "#888"; // Subtle gray
+      element.style.color = "#888";
       element.style.fontWeight = "normal";
     }
+  }
+
+  // Helper for small solenoid status badges
+  function updateSolenoidBadge(elementId, isOn) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.textContent = isOn ? "🟢 ON" : "🔴 OFF";
+    el.style.color = isOn ? "#2ecc71" : "#888";
+    el.style.fontWeight = isOn ? "bold" : "normal";
   }
 
   // Listen to Firebase and update instantly
   fanStateRef.on("value", snap => updateSubStatus(statusFan, snap.val()));
   pumpStateRef.on("value", snap => updateSubStatus(statusPump, snap.val()));
   lightStateRef.on("value", snap => updateSubStatus(statusLight, snap.val()));
+  mistStateRef.on("value", snap => updateSubStatus(document.getElementById("statusMist"), snap.val()));
+  solenoid1StateRef.on("value", snap => updateSolenoidBadge("statusSolenoid1", snap.val()));
+  solenoid2StateRef.on("value", snap => updateSolenoidBadge("statusSolenoid2", snap.val()));
+  solenoid3StateRef.on("value", snap => updateSolenoidBadge("statusSolenoid3", snap.val()));
     // SETUP PAGE - QUICK PRESET SELECTION
     const cropSelect = document.getElementById("cropSelect");
     const applyCropBtn = document.getElementById("applyCropBtn");
@@ -670,6 +887,8 @@ function refreshSoilHealthUI() {
       
       renderSchedule(); // Draw the boxes!
     }
+
+    // 4. Mist Maker uses the same humidity settings as the fan (target_humidity + humidity_hysteresis)
   });
 
   // ==========================================
@@ -852,7 +1071,7 @@ function refreshSoilHealthUI() {
         await configRef.set(null); // Optional: Also clear the active config if you want a full reset
 
         // 4. Manually clear the target labels on the screen immediately
-        ["targetTemp", "targetHumidity", "targetSoil", "targetLight"].forEach(id => {
+        ["targetTemp", "targetHumidity", "targetSoil", "targetSoil2", "targetSoil3", "targetLight", "nitrogenIdeal", "phosphorusIdeal", "potassiumIdeal"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.innerHTML = "";
         });
@@ -903,7 +1122,7 @@ function refreshSoilHealthUI() {
       
       // 2. Update Header Text
       if (activeCropTitle) activeCropTitle.textContent = "Currently Growing: " + cropName.toUpperCase();
-      if (activeCropSub) activeCropSub.textContent = "Your greenhouse is in AUTO mode.";
+      //if (activeCropSub) activeCropSub.textContent = "Your greenhouse is in AUTO mode.";
       if (progressCrop) progressCrop.textContent = cropName.toUpperCase();
 
       //Hide setup button when growing
@@ -950,45 +1169,187 @@ function refreshSoilHealthUI() {
 
     // Lock manual buttons when in Auto mode
     const isDisabled = currentMode !== "manual";
-    [fanBtn, pumpBtn, lightBtn].forEach(btn => {
+    [fanBtn, pumpBtn, lightBtn, mistBtn].forEach(btn => {
       if (!btn) return;
       btn.disabled = isDisabled;
       btn.style.opacity = isDisabled ? "0.5" : "1";
       btn.style.cursor = isDisabled ? "not-allowed" : "pointer";
     });
+
+    // Also lock/unlock zone checkboxes
+    [zoneCheck1, zoneCheck2, zoneCheck3].forEach(cb => {
+      if (!cb) return;
+      cb.disabled = isDisabled;
+    });
   });
 
-  // 2. Sync Dashboard Targets (and clear them when null)
+  // ==========================================
+  //   CROP OPTIMAL RANGES (display only)
+  //   ESP32 still uses single threshold values
+  // ==========================================
+  const cropOptimalRanges = {
+    tomato:  { tempMin: 21, tempMax: 24, humidMin: 65, humidMax: 85, soilMin: 60, soilMax: 80 },
+    lettuce: { tempMin: 15, tempMax: 25, humidMin: 60, humidMax: 80, soilMin: 60, soilMax: 80 },
+    spinach: { tempMin: 25, tempMax: 30, humidMin: 70, humidMax: 90, soilMin: 75, soilMax: 100 } // kangkong
+  };
+
+  // ==========================================
+  //   CROP NPK IDEAL PARAMETERS
+  // ==========================================
+const cropNPKRanges = {
+  spinach: { // Alias for Kangkong in your system
+    nitrogen:   "150–200 mg/kg (Lush Foliage)",
+    phosphorus: "40–70 mg/kg",
+    potassium:  "200–250 mg/kg (Stem Strength)"
+  },
+  kangkong: { // Also adding kangkong just in case
+    nitrogen:   "150–200 mg/kg (Lush Foliage)",
+    phosphorus: "40–70 mg/kg",
+    potassium:  "200–250 mg/kg (Stem Strength)"
+  },
+  lettuce: {
+    nitrogen:   "150–166 mg/kg",
+    phosphorus: "40–50 mg/kg",
+    potassium:  "200–210 mg/kg"
+  },
+  tomato: {
+    nitrogen:   "🌱 Veg: 150 | 🍅 Fruit: 200 mg/kg",
+    phosphorus: "🌱 Veg: 50 | 🍅 Fruit: 50–60 mg/kg",
+    potassium:  "🌱 Veg: 250 | 🍅 Fruit: 350–400 mg/kg"
+  }
+};
+
+  function getOptimalLabel(min, max, unit) {
+    return `<span style="color: #888; font-size: 0.8rem; margin-left: 5px;">(Optimal: ${min}\u2013${max}${unit})</span>`;
+  }
+
+  function getLightCategory(lux) {
+    if (lux <= 100)   return "Dark";
+    if (lux <= 2000)  return "Low Light";
+    if (lux <= 10000) return "Medium Light";
+    return "High Light";
+  }
+
+  // 2. Sync Dashboard Optimal Ranges & Handle Fixed Zone Highlighting
   configRef.on("value", snap => {
     const config = snap.val();
-    const targetIDs = ["targetTemp", "targetHumidity", "targetSoil", "targetLight"];
+    // These are the IDs that get wiped if no grow cycle is active
+    const wipeIDs = [
+      "targetTemp", "targetHumidity", "targetSoil", "targetSoil2", "targetSoil3", "targetLight",
+      "tipTempThreshold","tipHumidThreshold","tipSoil1Threshold","tipSoil2Threshold","tipSoil3Threshold","tipLuxThreshold",
+      "nitrogenIdeal", "phosphorusIdeal", "potassiumIdeal"
+    ];
 
-    // IF CONFIG IS WIPED (NULL), CLEAR THE LABELS
     if (!config) {
-      targetIDs.forEach(id => {
+      wipeIDs.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = "";
       });
+      // Also remove focus/badges if config is wiped
+      ["soilCard1", "soilCard2", "soilCard3"].forEach(id => document.getElementById(id)?.classList.remove('card-active-focus'));
+      ["badge-kangkong", "badge-lettuce", "badge-tomato"].forEach(id => document.getElementById(id)?.classList.add('hidden'));
       return;
     }
 
-    // IF CONFIG EXISTS, UPDATE THE LABELS
     const style = 'style="color: #888; font-size: 0.8rem; margin-left: 5px;"';
 
-    if (config.fan) {
-      const t = document.getElementById("targetTemp");
-      const h = document.getElementById("targetHumidity");
-      if (t) t.innerHTML = `<span ${style}>(Target: ${config.fan.target_temp}°C)</span>`;
-      if (h) h.innerHTML = `<span ${style}>(Target: ${config.fan.target_humidity}%)</span>`;
-    }
-    if (config.watering) {
-      const s = document.getElementById("targetSoil");
-      if (s) s.innerHTML = `<span ${style}>(Target: ${config.watering.target_soil_moisture}%)</span>`;
-    }
-    if (config.grow_light) {
-      const l = document.getElementById("targetLight");
-      if (l) l.innerHTML = `<span ${style}>(Req: ${config.grow_light.required_hours}hrs)</span>`;
-    }
+    selectedCropRef.get().then(cropSnap => {
+      const activeCrop = (cropSnap.val() || "").toLowerCase();
+      const ranges = cropOptimalRanges[activeCrop] || null;
+      
+      // ==========================================
+      //   1. NPK IDEAL LABELS (Active Crop Only)
+      // ==========================================
+      const npkKey = (activeCrop === "kangkong") ? "spinach" : activeCrop;
+      const npkData = cropNPKRanges[npkKey];
+      if (npkData) {
+        document.getElementById("nitrogenIdeal").innerHTML = `<strong>Ideal:</strong> ${npkData.nitrogen}`;
+        document.getElementById("phosphorusIdeal").innerHTML = `<strong>Ideal:</strong> ${npkData.phosphorus}`;
+        document.getElementById("potassiumIdeal").innerHTML = `<strong>Ideal:</strong> ${npkData.potassium}`;
+      }
+
+      // ==========================================
+      //   2. CLIMATE (Temp & Humidity)
+      // ==========================================
+      if (config.fan) {
+        const t = document.getElementById("targetTemp");
+        const h = document.getElementById("targetHumidity");
+        if (t) t.innerHTML = ranges
+          ? getOptimalLabel(ranges.tempMin, ranges.tempMax, "\u00b0C")
+          : `<span ${style}>(Trigger: ${config.fan.target_temp}\u00b0C)</span>`;
+        if (h) h.innerHTML = ranges
+          ? getOptimalLabel(ranges.humidMin, ranges.humidMax, "%")
+          : `<span ${style}>(Optimal Range)</span>`;
+
+        const tipTemp = document.getElementById("tipTempThreshold");
+        if (tipTemp) {
+          const rangeText = ranges ? `Optimal range is <strong>${ranges.tempMin}\u2013${ranges.tempMax}\u00b0C</strong>. ` : "";
+          tipTemp.innerHTML = `${rangeText}In Auto mode, the <strong>Vent Fan</strong> turns ON when temperature exceeds <strong>${config.fan.target_temp}\u00b0C</strong>.<br>`;
+        }
+        const tipHumid = document.getElementById("tipHumidThreshold");
+        if (tipHumid) {
+          const rangeText = ranges ? `Optimal range is <strong>${ranges.humidMin}\u2013${ranges.humidMax}%</strong>. ` : "";
+          tipHumid.innerHTML = `${rangeText}In Auto mode, the <strong>Mist Maker</strong> turns ON when humidity drops below <strong>${config.fan.target_humidity}%</strong>.<br>`;
+        }
+      }
+
+      // ==========================================
+      //   3. FIXED SOIL ZONES (1=Kang, 2=Lett, 3=Tom)
+      // ==========================================
+      function updateZoneLogic(zoneNum, cropName, targetId, cardId, badgeId, tipId) {
+        const targetEl = document.getElementById(targetId);
+        const cardEl = document.getElementById(cardId);
+        const badgeEl = document.getElementById(badgeId);
+        const tipEl = document.getElementById(tipId);
+
+        // Internal key mapping (spinach is kangkong in your system)
+        const rangeKey = (cropName === "kangkong") ? "spinach" : cropName;
+        const biologicalRange = cropOptimalRanges[rangeKey];
+
+        // A. Set Biological Label (Always show its own range)
+        if (targetEl && biologicalRange) {
+          targetEl.innerHTML = `<span ${style}>(${biologicalRange.soilMin}\u2013${biologicalRange.soilMax}%)</span>`;
+        }
+
+        // B. Set Tooltip (Show current dynamic trigger from Config)
+        if (tipEl && config.watering) {
+          const trigger = config.watering.target_soil_moisture;
+          tipEl.innerHTML = (biologicalRange ? `Optimal range is <strong>${biologicalRange.soilMin}\u2013${biologicalRange.soilMax}%</strong>. ` : "")
+            + `In Auto mode, this zone's valve opens at the scheduled time if moisture drops below <strong>${trigger}%</strong>.<br>`;
+        }
+
+        // C. Highlighting Logic (Is this the active crop from Setup?)
+        if (activeCrop === cropName || (activeCrop === "spinach" && cropName === "kangkong")) {
+          cardEl?.classList.add('card-active-focus');
+          badgeEl?.classList.remove('hidden');
+        } else {
+          cardEl?.classList.remove('card-active-focus');
+          badgeEl?.classList.add('hidden');
+        }
+      }
+
+      // Execute Zone Logic
+      updateZoneLogic(1, "kangkong", "targetSoil",  "soilCard1", "badge-kangkong", "tipSoil1Threshold");
+      updateZoneLogic(2, "lettuce",  "targetSoil2", "soilCard2", "badge-lettuce",  "tipSoil2Threshold");
+      updateZoneLogic(3, "tomato",   "targetSoil3", "soilCard3", "badge-tomato",   "tipSoil3Threshold");
+
+      // ==========================================
+      //   4. LIGHTING
+      // ==========================================
+      if (config.grow_light) {
+        const l = document.getElementById("targetLight");
+        const lightDisplayEl = document.getElementById("lightDisplay");
+        let cleanLux = 0;
+        if (lightDisplayEl && lightDisplayEl.innerText) {
+          cleanLux = parseFloat(lightDisplayEl.innerText.replace(/,/g, ""));
+        }
+        const lightStatus = getLightCategory(cleanLux);
+        if (l) l.innerHTML = `<span ${style}>(${lightStatus})</span>`;
+
+        const tipLux = document.getElementById("tipLuxThreshold");
+        if (tipLux) tipLux.innerHTML = `In Auto mode, <strong>Grow Lights</strong> turn ON when lux drops below <strong>${config.grow_light.light_threshold} lux</strong> and the daily light goal hasn't been met.<br>`;
+      }
+    });
   });
 
   // ==========================================
@@ -1022,10 +1383,8 @@ function refreshSoilHealthUI() {
     if (data) {
       const lightMins = data.light_minutes || 0;
       const sunlightMins = data.sunlight_minutes || 0;
-      const waterCount = data.water_count || 0;
-      
-      // Math: Convert total minutes into Hours and Minutes
-      const lightHrs = Math.floor(lightMins / 60);
+      //const waterCount = data.water_count || 0;
+      const waterCount = data.watering_log ? Object.values(data.watering_log).filter(status => status === "Watered" || status === "Manual").length : 0;      const lightHrs = Math.floor(lightMins / 60);
       const lightRemainderMins = lightMins % 60;
 
       const sunHrs = Math.floor(sunlightMins / 60);
@@ -1064,77 +1423,126 @@ function refreshSoilHealthUI() {
     if (sunlightHoursDisplay) sunlightHoursDisplay.textContent = "⚠️ Firebase error";
   });
 
-  // ==========================================
-  //      SYSTEM ALERTS (TOAST NOTIFICATIONS)
-  // ==========================================
-  const systemToast = document.getElementById("systemToast");
-  const toastMessage = document.getElementById("toastMessage");
-  let toastTimeout;
+// ==========================================
+//      SYSTEM ALERTS & ACTIVITY LOG
+// ==========================================
+const systemToast = document.getElementById("systemToast");
+const toastMessage = document.getElementById("toastMessage");
+const notificationList = document.getElementById("notificationList");
+const noActivityMsg = document.getElementById("noActivity");
+let toastTimeout;
 
-  let prevFan = false;
-  let prevPump = false;
-  let prevLight = false;
-  let isFirstLoad = true;
+// We use 'null' so it knows exactly when the page first loads
+let lastStates = { fan: null, pump: null, light: null, mist: null };
 
-  // We need to know the current mode for accurate alerts
-  let systemMode = "manual";
-  modeRef.on("value", snap => {
-    systemMode = snap.val() || "manual";
-  });
-
-  // The function to trigger the pop-up
-  function showToast(message, color) {
-    
-    if (!systemToast || !toastMessage) return;
-
-    // Change text and border color
-    toastMessage.textContent = message;
-    systemToast.style.borderLeftColor = color;
-
-    // Slide it down
-    systemToast.classList.remove("hidden");
-
-    // Reset the timer if a new alert comes in before the old one hides
-    clearTimeout(toastTimeout);
-
-    // Hide it automatically after 5 seconds
-    toastTimeout = setTimeout(() => {
-      systemToast.classList.add("hidden");
-    }, 5000);
-  }
-
-  // Listen to fan commands for alerts
-  fanCmdRef.on("value", (snap) => {
-    const currentFan = !!snap.val();
-    if (!isFirstLoad && currentFan === true && prevFan === false) {
-      if (systemMode === "auto") showToast("⚠️ INET BOI BAKA NAMAN. Fan ON.", "#e74c3c"); 
-      else showToast("👋 Manual Command: Fan turned ON.", "#7f8c8d"); 
+// 1. System Mode Listener
+let systemMode = "manual";
+modeRef.on("value", snap => {
+    let rawMode = snap.val();
+    // Force it to lowercase just in case Firebase says "Auto" or "AUTO"
+    if (rawMode) {
+        systemMode = String(rawMode).toLowerCase();
     }
-    prevFan = currentFan;
-    isFirstLoad = false;
-  });
+});
 
-  // Listen to pump commands for alerts
-  pumpCmdRef.on("value", (snap) => {
-    const currentPump = !!snap.val();
-    if (!isFirstLoad && currentPump === true && prevPump === false) {
-      if (systemMode === "auto") showToast("💧 HOY NAUUHAW NAKO PENGENG TUBIG. Pump ON.", "#3498db"); 
-      else showToast("👋 Manual Command: Pump turned ON.", "#7f8c8d"); 
+function triggerAlert(message, color) {
+    // A. TOAST POPUP (Keep as is)
+    if (systemToast && toastMessage) {
+        toastMessage.textContent = message;
+        systemToast.style.borderLeftColor = color;
+        systemToast.classList.remove("hidden");
+        clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => { systemToast.classList.add("hidden"); }, 5000);
     }
-    prevPump = currentPump;
-    isFirstLoad = false;
-  });
 
-  // Listen to light commands for alerts
-  lightCmdRef.on("value", (snap) => {
-    const currentLight = !!snap.val();
-    if (!isFirstLoad && currentLight === true && prevLight === false) {
-      if (systemMode === "auto") showToast("🌙 BROWNOUT AHHHHHHHH!. Grow lights ON.", "#f39c12"); 
-      else showToast("👋 Manual Command: Grow lights ON.", "#7f8c8d"); 
+    // B. DROPDOWN LOG
+    const list = document.getElementById("notificationList");
+    const noAct = document.getElementById("noActivity");
+    if (list) {
+        if (noAct) noAct.style.display = "none";
+
+        // Show the red unread dot on the bell if dropdown is currently closed
+        if (notifDropdown.classList.contains("hidden")) {
+            notifBadge.classList.remove("hidden");
+        }
+
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const logEntry = document.createElement("div");
+        logEntry.className = "log-entry-item";
+        logEntry.innerHTML = `
+            <span class="log-time">${timeStr}</span>
+            <span class="log-msg">${message}</span>
+            <div class="log-dot" style="background: ${color};"></div>
+        `;
+
+        list.prepend(logEntry);
+
+        // Keep it clean: Limit to 20 entries
+        if (list.children.length > 20) {
+            list.removeChild(list.lastElementChild);
+        }
     }
-    prevLight = currentLight;
-    isFirstLoad = false;
-  });
+}
+
+// 3. LISTENERS
+
+// FAN
+fanCmdRef.on("value", (snap) => {
+    const current = !!snap.val();
+    if (lastStates.fan !== null && current !== lastStates.fan) {
+        if (current) {
+            const msg = (systemMode === "auto") ? "⚠️ Temp High. Fan ON." : "👋 Manual Command: Fan ON.";
+            triggerAlert(msg, (systemMode === "auto") ? "#e74c3c" : "#7f8c8d");
+        } else {
+            triggerAlert("✅ Temp Stable. Fan OFF.", "#2ecc71");
+        }
+    }
+    lastStates.fan = current;
+});
+
+// PUMP
+pumpCmdRef.on("value", (snap) => {
+    const current = !!snap.val();
+    if (lastStates.pump !== null && current !== lastStates.pump) {
+        if (current) {
+            const msg = (systemMode === "auto") ? "💧 Soil Dry. Pump ON." : "👋 Manual Command: Pump ON.";
+            triggerAlert(msg, (systemMode === "auto") ? "#3498db" : "#7f8c8d");
+        } else {
+            triggerAlert("✅ Watering finished. Pump OFF.", "#2ecc71");
+        }
+    }
+    lastStates.pump = current;
+});
+
+// LIGHT
+lightCmdRef.on("value", (snap) => {
+    const current = !!snap.val();
+    if (lastStates.light !== null && current !== lastStates.light) {
+        if (current) {
+            const msg = (systemMode === "auto") ? "🌙 Low Light. Grow lights ON." : "👋 Manual Command: Lights ON.";
+            triggerAlert(msg, (systemMode === "auto") ? "#f39c12" : "#7f8c8d");
+        } else {
+            triggerAlert("☀️ Light sufficient. Lights OFF.", "#2ecc71");
+        }
+    }
+    lastStates.light = current;
+});
+
+// MIST MAKER
+mistCmdRef.on("value", (snap) => {
+    const current = !!snap.val();
+    if (lastStates.mist !== null && current !== lastStates.mist) {
+        if (current) {
+            const msg = (systemMode === "auto") ? "💧 Low Humidity. Mist Maker ON." : "👋 Manual Command: Mist Maker ON.";
+            triggerAlert(msg, (systemMode === "auto") ? "#3498db" : "#7f8c8d");
+        } else {
+            triggerAlert("✅ Humidity reached. Mist Maker OFF.", "#2ecc71");
+        }
+    }
+    lastStates.mist = current;
+});
 
   // ===================================//
   //       DAILY TRACKING HISTORY       //
@@ -1181,8 +1589,14 @@ function refreshSoilHealthUI() {
       const artM = artTotal % 60;
 
       // Get the total count (defaults to 0 if not found)
-      let waterCount = entry.water_count !== undefined ? entry.water_count : 0;
-      
+// --- NEW FIX: Count both "Watered" and "Manual" actions ---
+      let waterCount = 0;
+      if (entry.watering_log) {
+        // We added the OR check right here:
+        waterCount = Object.values(entry.watering_log).filter(status => status === "Watered" || status === "Manual").length;
+      } else if (entry.water_count !== undefined) {
+        waterCount = entry.water_count; // Fallback for very old data
+      }      
       // --- NEW TABLE WATERING LOGIC ---
       let wateringDetails = "";
       
@@ -1282,7 +1696,9 @@ if (ctx && datePicker) {
       const timeLabels = [];
       const tempData = [];
       const humidData = [];
-      const soilData = [];
+      const soil1Data = [];
+      const soil2Data = [];
+      const soil3Data = [];
       const luxData = [];
 
       const hours = Object.keys(data).sort();
@@ -1294,7 +1710,9 @@ if (ctx && datePicker) {
         
         tempData.push(data[hour].temp || 0);
         humidData.push(data[hour].humid || 0);
-        soilData.push(data[hour].soil_avg || 0);
+        soil1Data.push(data[hour].soil1 || 0);
+        soil2Data.push(data[hour].soil2 || 0);
+        soil3Data.push(data[hour].soil3 || 0);
         luxData.push(data[hour].lux || 0);
       });
 
@@ -1309,7 +1727,9 @@ if (ctx && datePicker) {
           datasets: [
             { label: 'Temp (°C)', data: tempData, borderColor: '#e74c3c', backgroundColor: '#e74c3c', tension: 0.3, yAxisID: 'y' },
             { label: 'Humidity (%)', data: humidData, borderColor: '#3498db', backgroundColor: '#3498db', tension: 0.3, yAxisID: 'y' },
-            { label: 'Soil Avg (%)', data: soilData, borderColor: '#2ecc71', backgroundColor: '#2ecc71', tension: 0.3, yAxisID: 'y' },
+            { label: 'Soil Zone 1 (%)', data: soil1Data, borderColor: '#8b7355', backgroundColor: '#8b7355', tension: 0.3, yAxisID: 'y' },
+            { label: 'Soil Zone 2 (%)', data: soil2Data, borderColor: '#a0826d', backgroundColor: '#a0826d', tension: 0.3, yAxisID: 'y' },
+            { label: 'Soil Zone 3 (%)', data: soil3Data, borderColor: '#c9b8a8', backgroundColor: '#c9b8a8', tension: 0.3, yAxisID: 'y' },
             { label: 'Lux', data: luxData, borderColor: '#f1c40f', backgroundColor: '#f1c40f', tension: 0.3, yAxisID: 'y1' }
           ]
         },
@@ -1359,112 +1779,271 @@ if (ctx && datePicker) {
   });
 }
 
-// Run this every 10 seconds to check if the greenhouse is still "alive"
-setInterval(() => {
-  const lastSeenEl = document.getElementById("last-seen-text");
-  const statusDot = document.getElementById("status-dot");
-  
-  const secondsPageHasBeenQuiet = Math.floor((Date.now() - lastHeartbeat) / 1000);
+// ==========================================
+//      MASTER SYSTEM CONNECTIVITY LOGIC
+// ==========================================
 
-  if (secondsPageHasBeenQuiet < 60) {
-    // Hardware updated less than a minute ago
-    lastSeenEl.innerText = `Hardware: Online (Just now)`;
-    statusDot.innerText = "🟢";
+// 1. Monitor if the Browser itself has internet
+let browserIsConnected = false;
+firebase.database().ref('.info/connected').on('value', (snap) => {
+    browserIsConnected = (snap.val() === true);
+});
+
+// 2. The Unified Checker (Updates the Top Nav Status)
+setInterval(() => {
+  const statusDot = document.getElementById('status-dot');
+  const statusText = document.getElementById('status-text');
+  const lastSeenEl = document.getElementById("last-seen-text");
+  
+  // Calculate seconds since the last sensor update from ESP32
+  const secondsSinceLastData = lastHeartbeat === 0 ? 999999 : Math.floor((Date.now() - lastHeartbeat) / 1000);
+
+  if (!browserIsConnected) {
+    // RED: Your laptop/computer has no internet
+    statusDot.textContent = '🔴';
+    statusText.textContent = 'Dashboard Offline';
+    statusText.style.color = '#e74c3c'; // Red
+    lastSeenEl.innerText = "Check your WiFi connection";
+    statusDot.classList.remove("pulse-green");
+  } 
+  else if (secondsSinceLastData > 60) {
+    // RED: You have internet, but the Greenhouse Hardware is OFF or disconnected
+    statusDot.textContent = '🔴';
+    statusText.textContent = 'Hardware Offline';
+    statusText.style.color = '#e74c3c'; // Red
+    
+    if (secondsSinceLastData > 3600) {
+        lastSeenEl.innerText = "Hardware: OFFLINE (> 1 hour)";
+    } else {
+        const mins = Math.floor(secondsSinceLastData / 60);
+        lastSeenEl.innerText = `Hardware: Last seen ${mins}m ago`;
+    }
+    statusDot.classList.remove("pulse-green");
+  } 
+  else {
+    // GREEN: Everything is working perfectly
+    statusDot.textContent = '🟢';
+    statusText.textContent = 'System Online';
+    statusText.style.color = '#2ecc71'; // Green
+    lastSeenEl.innerText = "Hardware: Online (Just now)";
     statusDot.classList.add("pulse-green");
-  } else if (secondsPageHasBeenQuiet < 3600) {
-    // Hardware updated a few minutes ago
-    const mins = Math.floor(secondsPageHasBeenQuiet / 60);
-    lastSeenEl.innerText = `Hardware: Last seen ${mins}m ago`;
-    statusDot.innerText = "🟡";
-    statusDot.classList.remove("pulse-green");
-  } else {
-    // Hardware hasn't talked to us in over an hour
-    lastSeenEl.innerText = `Hardware: OFFLINE`;
-    statusDot.innerText = "🔴";
-    statusDot.classList.remove("pulse-green");
   }
-}, 10000); // Check every 10 seconds
+}, 5000); // Check every 5 seconds for a faster response
 
 // ==========================================
-//      CHAPTER 4: MASTER CSV EXPORT
+//      CHAPTER 4: MASTER CSV EXPORT (ALL DATA)
 // ==========================================
 const downloadBtn = document.getElementById("downloadCsvBtn");
 
 if (downloadBtn) {
   downloadBtn.addEventListener("click", async () => {
-    const selectedDate = document.getElementById("graphDatePicker").value;
-    if (!selectedDate) {
-      alert("Please select a date first!");
-      return;
-    }
-
-    // 1. Get BOTH History and Daily Tracking from Firebase
-    const historyRef = firebase.database().ref('history/' + selectedDate);
-    const trackingRef = firebase.database().ref('tracking/daily/' + selectedDate);
+    
+    // 1. Get ALL History and ALL Daily Tracking from Firebase
+    // Notice we removed the specific date, so it grabs the whole folder
+    const historyRef = firebase.database().ref('history');
+    const trackingRef = firebase.database().ref('tracking/daily');
 
     const [histSnap, trackSnap] = await Promise.all([
       historyRef.once('value'),
       trackingRef.once('value')
     ]);
 
-    const histData = histSnap.val();
-    const trackData = trackSnap.val();
+    const allHistData = histSnap.val() || {};
+    const allTrackData = trackSnap.val() || {};
 
-    if (!histData && !trackData) {
-      alert("No data found for this date.");
+    // Gather every single date from both folders and sort them from oldest to newest
+    const allDates = new Set([...Object.keys(allHistData), ...Object.keys(allTrackData)]);
+    const sortedDates = Array.from(allDates).sort();
+
+    if (sortedDates.length === 0) {
+      alert("No data found in the database.");
       return;
     }
 
-    let csvContent = `GREENHOUSE MASTER REPORT: ${selectedDate}\n\n`;
+    let csvContent = `GREENHOUSE COMPLETE MASTER REPORT\n`;
+    csvContent += `Generated on: ${new Date().toLocaleDateString()}\n\n`;
 
-    // 2. PART A: DAILY SUMMARY
-    csvContent += "--- DAILY SUMMARY ---\n";
-    csvContent += `Total Waterings,${trackData?.water_count || 0} times\n`;
-    csvContent += `Grow Light Duration,${trackData?.light_minutes || 0} mins\n`;
-    csvContent += `Sunlight Duration,${trackData?.sunlight_minutes || 0} mins\n\n`;
+    // 2. Loop through every single date and build the sections
+    sortedDates.forEach(date => {
+      const histData = allHistData[date];
+      const trackData = allTrackData[date];
 
-    // 3. PART B: WATERING LOG (When exactly did it water?)
-    csvContent += "--- WATERING LOG ---\n";
-    csvContent += "Time,Action\n";
-    if (trackData?.watering_log) {
-      Object.keys(trackData.watering_log).sort().forEach(time => {
-        csvContent += `${time},${trackData.watering_log[time]}\n`;
-      });
-    } else {
-      csvContent += "No watering events recorded\n";
-    }
-    csvContent += "\n";
+      // Add a clear visual separator for each new day
+      csvContent += `==========================================\n`;
+      csvContent += ` DATE: ${date}\n`;
+      csvContent += `==========================================\n\n`;
 
-    // 4. PART C: HOURLY ENVIRONMENT DATA
-    csvContent += "--- HOURLY ENVIRONMENT LOG ---\n";
-    csvContent += "Time,Temp (C),Humidity (%),Soil Avg (%),Lux,Nitrogen,Phosphorus,Potassium\n";
-    
-    if (histData) {
-      Object.keys(histData).sort().forEach(hour => {
-        const row = histData[hour];
-        const line = [
-          hour,
-          row.temp || 0,
-          row.humid || 0,
-          row.soil_avg || 0,
-          row.lux || 0,
-          row.nitrogen || 0,
-          row.phosphorus || 0,
-          row.potassium || 0
-        ].join(",");
-        csvContent += line + "\n";
-      });
-    }
+      // PART A: DAILY SUMMARY
+      csvContent += "--- DAILY SUMMARY ---\n";
+      csvContent += `Total Waterings,${trackData?.water_count || 0} times\n`;
+      csvContent += `Grow Light Duration,${trackData?.light_minutes || 0} mins\n`;
+      csvContent += `Sunlight Duration,${trackData?.sunlight_minutes || 0} mins\n\n`;
 
-    // 5. DOWNLOAD THE FILE
+      // PART B: WATERING LOG (When exactly did it water?)
+      csvContent += "--- WATERING LOG ---\n";
+      csvContent += "Time,Action\n";
+      if (trackData?.watering_log) {
+        Object.keys(trackData.watering_log).sort().forEach(time => {
+          csvContent += `${time},${trackData.watering_log[time]}\n`;
+        });
+      } else {
+        csvContent += "No watering events recorded\n";
+      }
+      csvContent += "\n";
+
+      // PART C: HOURLY ENVIRONMENT LOG
+      csvContent += "--- HOURLY ENVIRONMENT LOG ---\n";
+      csvContent += "Time,Temp (C),Humidity (%),Soil Avg (%),Lux,Nitrogen,Phosphorus,Potassium\n";
+      
+      if (histData) {
+        Object.keys(histData).sort().forEach(hour => {
+          const row = histData[hour];
+          const line = [
+            hour,
+            row.temp || 0,
+            row.humid || 0,
+            row.soil_avg || 0,
+            row.lux || 0,
+            row.nitrogen || 0,
+            row.phosphorus || 0,
+            row.potassium || 0
+          ].join(",");
+          csvContent += line + "\n";
+        });
+      } else {
+         csvContent += "No hourly data recorded for this date\n";
+      }
+      
+      // Add extra space before the next day starts
+      csvContent += "\n\n"; 
+    });
+
+    // 3. DOWNLOAD THE FILE
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Master_Report_${selectedDate}.csv`);
+    link.setAttribute("download", `Complete_Greenhouse_Report.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   });
+}
+
+// ==========================================
+//      ONBOARDING GUIDE MODAL
+// ==========================================
+(function() {
+  const TOTAL_STEPS = 5;
+  let currentStep = 1;
+
+  const modal      = document.getElementById("guideModal");
+  const closeBtn   = document.getElementById("guideCloseBtn");
+  const prevBtn    = document.getElementById("guidePrevBtn");
+  const nextBtn    = document.getElementById("guideNextBtn");
+  const progressBar = document.getElementById("guideProgressBar");
+  const stepLabel  = document.getElementById("guideStepLabel");
+  const guideBtn   = document.getElementById("guideBtn");
+
+  function showStep(n) {
+    // Hide all steps
+    document.querySelectorAll(".guide-step").forEach(s => s.classList.remove("active"));
+    // Show target step
+    const target = document.querySelector(`.guide-step[data-step="${n}"]`);
+    if (target) target.classList.add("active");
+
+    // Update progress bar
+    const pct = ((n - 1) / (TOTAL_STEPS - 1)) * 100;
+    if (progressBar) progressBar.style.width = pct + "%";
+
+    // Update step label
+    if (stepLabel) stepLabel.textContent = `Step ${n} of ${TOTAL_STEPS}`;
+
+    // Back button visibility
+    if (prevBtn) prevBtn.style.visibility = n === 1 ? "hidden" : "visible";
+
+    // Next button text
+    if (nextBtn) nextBtn.textContent = n === TOTAL_STEPS ? "Got it! 🎉" : "Next →";
+
+    currentStep = n;
+  }
+
+  function openModal() {
+    if (modal) modal.classList.remove("hidden");
+    showStep(1);
+  }
+
+  function closeModal() {
+    if (modal) modal.classList.add("hidden");
+    // Remember they've seen it
+    localStorage.setItem("autogrow_guide_seen", "true");
+  }
+
+  // Next / Got it button
+  if (nextBtn) {
+    nextBtn.addEventListener("click", () => {
+      if (currentStep < TOTAL_STEPS) {
+        showStep(currentStep + 1);
+      } else {
+        closeModal();
+      }
+    });
+  }
+
+  // Back button
+  if (prevBtn) {
+    prevBtn.addEventListener("click", () => {
+      if (currentStep > 1) showStep(currentStep - 1);
+    });
+  }
+
+  // Close (X) button
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+
+  // Click outside modal to close
+  if (modal) {
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+
+  // "? Guide" button in navbar — always reopens
+  if (guideBtn) guideBtn.addEventListener("click", openModal);
+
+  // Auto-show on first login
+  if (!localStorage.getItem("autogrow_guide_seen")) {
+    // Small delay so the dashboard loads first
+    setTimeout(openModal, 800);
+  }
+})();
+
+// --- NOTIFICATION DROPDOWN LOGIC ---
+const notifBtn = document.getElementById("notifBtn");
+const notifDropdown = document.getElementById("notifDropdown");
+const notifBadge = document.getElementById("notifBadge");
+const clearNotifs = document.getElementById("clearNotifs");
+
+// Toggle dropdown when clicking the bell
+notifBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    notifDropdown.classList.toggle("hidden");
+    // Hide red dot when opened
+    notifBadge.classList.add("hidden");
+});
+
+// Close dropdown if clicking anywhere else on the screen
+document.addEventListener("click", () => {
+    notifDropdown.classList.add("hidden");
+});
+
+// Prevent dropdown from closing when clicking inside it
+notifDropdown.addEventListener("click", (e) => e.stopPropagation());
+
+// Clear all notifications
+if (clearNotifs) {
+    clearNotifs.addEventListener("click", () => {
+        const list = document.getElementById("notificationList");
+        list.innerHTML = '<p id="noActivity">No recent activities...</p>';
+    });
 }
