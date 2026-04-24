@@ -1411,9 +1411,9 @@ const cropNPKRanges = {
       
     } else {
       // If it's exactly midnight and the ESP32 hasn't sent data yet
-      if (pumpCountDisplay) pumpCountDisplay.textContent = "0 times (waiting for data...)";
-      if (lightHoursDisplay) lightHoursDisplay.textContent = "0 hrs 0 mins (waiting for data...)";
-      if (sunlightHoursDisplay) sunlightHoursDisplay.textContent = "0 hrs 0 mins (waiting for data...)";
+      if (pumpCountDisplay) pumpCountDisplay.textContent = "0 times (waiting...)";
+      if (lightHoursDisplay) lightHoursDisplay.textContent = "0 hrs 0 mins (waiting...)";
+      if (sunlightHoursDisplay) sunlightHoursDisplay.textContent = "0 hrs 0 mins (waiting...)";
     }
   }, (error) => {
     // Handle Firebase read errors
