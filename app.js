@@ -166,13 +166,19 @@ scheduleRef.on('value', (snapshot) => {
       const logKey = String(t.hour).padStart(2,'0') + ':' + String(t.min).padStart(2,'0');
       const logStatus = wateringLog[logKey];
       let statusBadge = '';
-      if (logStatus === 'Watered') {
-        statusBadge = '<span style="color:#3498db;font-weight:bold;margin-left:8px;">💧 Watered</span>';
-      } else if (logStatus === 'Skipped') {
-        statusBadge = '<span style="color:#e74c3c;font-weight:bold;margin-left:8px;">⏭️ Skipped</span>';
-      } else if (logStatus === 'Manual') {
-        statusBadge = '<span style="color:#f39c12;font-weight:bold;margin-left:8px;">👋 Manual</span>';
-      } else {
+// We check if logStatus exists first, then use .includes()
+      if (logStatus && logStatus.includes('Watered')) {
+        // We inject the actual logStatus variable so it shows the zone percentages!
+        statusBadge = '<span style="color:#3498db;font-weight:bold;margin-left:8px;font-size:0.85rem;">💧 ' + logStatus + '</span>';
+      } 
+      else if (logStatus && logStatus.includes('Skipped')) {
+        // Shows "Skipped (all zones OK)"
+        statusBadge = '<span style="color:#e74c3c;font-weight:bold;margin-left:8px;font-size:0.85rem;">⏭️ ' + logStatus + '</span>';
+      } 
+      else if (logStatus && logStatus.includes('Manual')) {
+        statusBadge = '<span style="color:#f39c12;font-weight:bold;margin-left:8px;font-size:0.85rem;">👋 Manual</span>';
+      } 
+      else {
         statusBadge = '<span style="color:#aaa;margin-left:8px;">⏳ Pending</span>';
       }
       rowsHTML += '<div style="padding:6px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;">'
@@ -1383,8 +1389,15 @@ const cropNPKRanges = {
     if (data) {
       const lightMins = data.light_minutes || 0;
       const sunlightMins = data.sunlight_minutes || 0;
-      //const waterCount = data.water_count || 0;
-      const waterCount = data.watering_log ? Object.values(data.watering_log).filter(status => status === "Watered" || status === "Manual").length : 0;      const lightHrs = Math.floor(lightMins / 60);
+// --- NEW FIX: Use .includes() so it counts the detailed zone logs! ---
+      let waterCount = 0;
+      if (data.watering_log) {
+        waterCount = Object.values(data.watering_log).filter(status => status.includes("Watered") || status.includes("Manual")).length;
+      } else if (data.water_count !== undefined) {
+        waterCount = data.water_count; // Fallback for old data
+      }
+
+      const lightHrs = Math.floor(lightMins / 60);
       const lightRemainderMins = lightMins % 60;
 
       const sunHrs = Math.floor(sunlightMins / 60);
@@ -1592,34 +1605,35 @@ mistCmdRef.on("value", (snap) => {
 // --- NEW FIX: Count both "Watered" and "Manual" actions ---
       let waterCount = 0;
       if (entry.watering_log) {
-        // We added the OR check right here:
-        waterCount = Object.values(entry.watering_log).filter(status => status === "Watered" || status === "Manual").length;
+        // CHANGED TO .includes() so it counts the detailed "Watered (Z1=...)" logs!
+        waterCount = Object.values(entry.watering_log).filter(status => status.includes("Watered") || status.includes("Manual")).length;
       } else if (entry.water_count !== undefined) {
         waterCount = entry.water_count; // Fallback for very old data
       }      
+
       // --- NEW TABLE WATERING LOGIC ---
       let wateringDetails = "";
       
       if (entry.watering_log) {
-        // NEW DATA: Make it a clickable toggle that shows the count on the outside
         let timelineHTML = "";
         for (const [time, action] of Object.entries(entry.watering_log)) {
 
-          // --- NEW: Convert 24-hour time to AM/PM ---
+          // Convert 24-hour time to AM/PM
           let [hourString, minuteString] = time.split(':');
           let hour = parseInt(hourString);
           let ampm = hour >= 12 ? 'PM' : 'AM';
           hour = hour % 12;
-          hour = hour ? hour : 12; // the hour '0' should be '12'
+          hour = hour ? hour : 12; 
           let displayTime = `${hour}:${minuteString} ${ampm}`;
-          // Color code actions
+          
+          // Color code actions using .includes()
           let color = "#888"; 
-          if (action === "Watered") color = "#3498db"; // Blue
-          if (action === "Skipped") color = "#e74c3c"; // Red
-          if (action === "Manual") color = "#f39c12";  // Orange
+          if (action.includes("Watered")) color = "#3498db"; // Blue
+          else if (action.includes("Skipped")) color = "#e74c3c"; // Red
+          else if (action.includes("Manual")) color = "#f39c12";  // Orange
           
           timelineHTML += `<div style="margin-bottom: 3px; font-size: 0.9em;"><b>${displayTime}</b> <span style="color: ${color};">${action}</span></div>`;        
-}
+        }
         
         // The <details> tag creates a clickable drop-down automatically
         wateringDetails = `
